@@ -1,19 +1,22 @@
 
 import tensorflow as tf
+from tensorflow.data import Dataset
 
+class DataManager(Dataset):
+    """
+    We create a DataManager based on the tf.data.Dataset class.
+    """
 
-class DataManager(object):
-    def __init__(self, data_folder):
+    def preprocess_on_load_(self):
         pass
 
+    def preprocess_on_batch_(self):
+        pass
+
+    def augment_data_strategy(self):
+        pass
 
     def load_data(self):
         """
         Load data function
-        """
-
-
-    def get_batch(self):
-        """
-        Get batch of data
         """

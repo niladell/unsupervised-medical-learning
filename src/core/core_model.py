@@ -32,7 +32,7 @@ class CoreModel(object):
         raise NotImplementedError('No model defined.')
 
     def build_model(self, mode: str):
-        outputs, losses, others = self.define_model(self.data_manager, mode=mode)
+        outputs, losses, others = self.define_model(self.data_manager.datasource, mode=mode)
 
         self.outputs = outputs
         self.losses = losses
@@ -62,9 +62,13 @@ class CoreModel(object):
             # TODO TRAIN
             self.session.run(self.optimize_ops)
             if step % 100 == 0:
-                logging.info('Step {}'.format(step))
+                logging.info('Step {} -- Accuracy {}'.format(step, self._validate()))
 
         logging.info('Done training.')
+
+    def _validate(self):
+        accuracy = self.session.run(self.others) # TODO Hacky workaround for testing
+        return accuracy
 
     def evaluate(self):
         pass

@@ -58,6 +58,8 @@ class ExampleModel(CoreModel):
         loss = tf.losses.sparse_softmax_cross_entropy(labels=labels, logits=logits)
 
         outputs = {'prediction': logits, 'probabilities': tf.nn.softmax(logits, name='softmax_layer')}
+        correct_prediction = tf.equal(tf.argmax(logits, axis=1, output_type=tf.int32), labels)
+        accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
-        return outputs, [loss], {}  # outputs, losses, metrics/otters
+        return outputs, [loss], [accuracy]  # outputs, losses, metrics/otters
         # TODO Temporal unconsistent formatting on the return elements: use dict, tf.somthing, list...?

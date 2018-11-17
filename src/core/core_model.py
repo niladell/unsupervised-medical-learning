@@ -2,7 +2,7 @@ from absl import logging
 
 import tensorflow as tf
 
-from .data_manager import DataManager
+from .core_datamanager import DataManager
 
 class CoreModel(object):
 

@@ -8,11 +8,14 @@ class CoreModel(object):
 
     def __init__(self,
                  tf_session: tf.Session,
-                 data_manager: DataManager,
+                 training_dataset: DataManager = None,
+                 validation_dataset: DataManager = None,
                  learning_rate: float = 0.1
                   ):
         self.session = tf_session
-        self.data_manager = data_manager
+        self.dataset = {}
+        if training_dataset: self.dataset['train'] = training_dataset.datasource
+        if validation_dataset: self.dataset['validation'] = validation_dataset.datasource
 
         self.learning_rate = learning_rate
 
@@ -32,7 +35,7 @@ class CoreModel(object):
         raise NotImplementedError('No model defined.')
 
     def build_model(self, mode: str):
-        outputs, losses, others = self.define_model(self.data_manager.datasource, mode=mode)
+        outputs, losses, others = self.define_model(self.dataset[mode], mode=mode)
 
         self.outputs = outputs
         self.losses = losses

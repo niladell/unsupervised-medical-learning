@@ -30,9 +30,9 @@ class CIFAR10(DataManager):
 
     def __init__(self,
                  tf_session  : tf.Session,
+                 batch_size: int = 32,
                  dataset_path: str = '../datasets/cifar-10-batches-py/',    # Path to the dataset
                  file_name   : str = 'data_batch',                          # Subsrting in files names (here: 'data_batch' <-- 'data_batch_1', 'data_batch_2', ...)
-                 defaul_batch_size: int = 32,
                  ):
         self.path = dataset_path
         self.file_name = file_name
@@ -42,25 +42,10 @@ class CIFAR10(DataManager):
         self.img_size = 32
         self.num_classes = 10
 
-        self.batch_size = defaul_batch_size
+        self.batch_size = batch_size
         self._session = tf_session
 
-        self.pre_load()
-        self.initialize()
-
-    def initialize(self):
-        """
-        Initialize iteratior.
-
-        # TODO Should the session object be passed here or be an atribute of the class
-        """
-
-        # sess(self.iteratior.initializer)
-
-        # Initialize the iterator
-        self._session.run(self.iterator.initializer)
-
-        self.datasource = self.iterator.get_next()
+        super().__init__(tf_session, batch_size)
 
     def _input_files(self):
         """
@@ -94,6 +79,16 @@ class CIFAR10(DataManager):
         return images
 
     def _unpickle(self, file):
+        """
+        Unpicke batch CIFAR10 files
+
+        Args:
+            file (str): File name
+
+        Returns:
+            (dict): Extracted data from files
+        """
+
         with open(file, 'rb') as fo:
             raw = pickle.load(fo, encoding='bytes')
         return raw
@@ -103,7 +98,7 @@ class CIFAR10(DataManager):
         Parse CIFAR input files
 
         Returns:
-            [np.array, list]: Returns the images and the lables
+            (np.array, list): Returns the images and the lables
         """
 
         self._input_files()
@@ -116,18 +111,12 @@ class CIFAR10(DataManager):
             images = np.concatenate((images, img), axis=0) if images is not None else img
         return images, labels
 
-    def pre_load(self):
+    def load_data(self):
         """
         First loading step of the class: parse the data and generate the dataset instances.
+
+        This will generate a tf.Dataset initialized instance on `self.datasource` with the same shape of
+        the element returned here (i.e. tuple of the tensor for Images and the tensorf for labels: (images, labels))
         """
         # TODO Feels not 100% correct way of approaching it for most of the cases
-
-        data = self.input_parser() # (images, labels)
-        dataset = Dataset.from_tensor_slices(data)
-        # Automatically refill the data queue when empty
-        dataset = dataset.repeat()
-        # Create batches of data
-        dataset = dataset.batch(self.batch_size)
-        # Prefetch data for faster consumption
-        dataset = dataset.prefetch(self.batch_size)
-        self.iterator = dataset.make_initializable_iterator()
+        return self.input_parser() # (images, labels)

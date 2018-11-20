@@ -17,9 +17,11 @@ class CoreModel(object):
         if training_dataset: self.dataset['train'] = training_dataset.datasource
         if validation_dataset: self.dataset['validation'] = validation_dataset.datasource
 
+        self._train_model =  True if training_dataset is not None else False
+        self._validate_model = True if validation_dataset is not None else False
         self.learning_rate = learning_rate
 
-    def define_model(self, data_source: DataManager , mode: str):
+    def define_model(self, data_source: DataManager , mode: str): #pylint: disable=E0202
         """
         Definition of the model to use. Do not modify the function here
         placeholder for the actual definition in model/ (see example)
@@ -34,20 +36,34 @@ class CoreModel(object):
 
         raise NotImplementedError('No model defined.')
 
-    def build_model(self, mode: str):
-        outputs, losses, others = self.define_model(self.dataset[mode], mode=mode)
+    def build_model(self):
+        """ Build the model. """
 
-        self.outputs = outputs
-        self.losses = losses
-        self.others = others
+        # This overwrites define_model, is that ok?
+        self.define_model = tf.make_template(self.define_model.__name__, self.define_model, create_scope_now_=True)  #pylint: disable=E1101
+
+        self.outputs = {}
+        self.losses = {}
+        self.otters = {}
+
+        def _build(mode):
+            outputs, losses, others = self.define_model(data_source=self.dataset[mode], mode=mode)
+            self.outputs[mode] = outputs
+            self.losses[mode] = losses
+            self.otters[mode] = others
+            self._build_optimizer()
+
+        if self._train_model:
+            _build('train')
+
+        if self._validate_model:
+            _build('validation')
 
         # TODO Add routine to save
 
-        self._build_optimizer()
-
     def _build_optimizer(self, optimizer_to_use=tf.train.AdamOptimizer):
         self.optimize_ops = []
-        for loss in self.losses:  # TODO Create apropoiate external training scheme
+        for loss in self.losses['train']:  # TODO Create apropoiate external training scheme
             optimize_op = optimizer_to_use(
                 learning_rate=self.learning_rate
             ).minimize(
@@ -61,17 +77,28 @@ class CoreModel(object):
         # Initialize or check if checkpoint # TODO add checkpoint manager
         self.session.run(tf.global_variables_initializer())
 
+        fetches = {}
+        fetches['optimize_ops'] = self.optimize_ops
+        fetches['losses'] = self.losses['train']
+        if self.otters['train']:
+            fetches['others'] = self.otters['train']
+
         for step in range(steps):  # TODO start from checkpoint steps
             # TODO TRAIN
-            self.session.run(self.optimize_ops)
+            train_out = self.session.run(fetches=fetches) # Training output not used for now #TODO Add to summary
             if step % 100 == 0:
-                logging.info('Step {} -- Accuracy {}'.format(step, self._validate()))
+                logging.info('Step {} -- Validation result: {}'.format(step, self._validate()))
 
         logging.info('Done training.')
 
     def _validate(self):
-        accuracy = self.session.run(self.others) # TODO Hacky workaround for testing
-        return accuracy
+        fetches = {}
+        fetches['losses'] = self.losses['validation']
+        if self.otters['train']:
+            fetches['others'] = self.otters['validation']
+
+        validation_out = self.session.run(fetches=fetches)
+        return validation_out
 
     def evaluate(self):
         pass

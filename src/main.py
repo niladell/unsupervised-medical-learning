@@ -23,6 +23,6 @@ with tf.Session() as session:
                          validation_dataset=validation_dataset,
                          learning_rate=0.1)
 
-    model.build_model(mode='train')
+    model.build_model()
 
     model.train(1001)

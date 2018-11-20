@@ -8,7 +8,7 @@ class ExampleModel(CoreModel):
     Example definition of a model/network architecture using this template.
     """
 
-    def define_model(self, inputs, mode):
+    def define_model(self, data_source, mode):
         """
         Example definition of a network
 
@@ -24,7 +24,7 @@ class ExampleModel(CoreModel):
         training = True if mode == 'train' else False
 
         # Input Layer
-        input_layer, labels =  inputs #  input shape -->  [?, 28, 28, 1]
+        input_layer, labels =  data_source #  input shape -->  [?, 28, 28, 1]
 
         # Convolutional Layer #1
         conv1 = tf.layers.conv2d(

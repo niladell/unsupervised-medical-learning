@@ -11,8 +11,10 @@ class CoreModel(object):
                  learning_rate: float,
                  training_dataset: DataManager = None,
                  validation_dataset: DataManager = None,
+                 output_path: str = './outputs'
                 ):
         self.session = tf_session
+        self.output_path = output_path
         self.dataset = {}
         if training_dataset: self.dataset['train'] = training_dataset.datasource
         if validation_dataset: self.dataset['validation'] = validation_dataset.datasource
@@ -40,7 +42,9 @@ class CoreModel(object):
         """ Build the model. """
 
         # This overwrites define_model, is that ok?
-        self.define_model = tf.make_template(self.define_model.__name__, self.define_model, create_scope_now_=True)  #pylint: disable=E1101
+        self.define_model = tf.make_template(self.define_model.__name__,  #pylint: disable=E1101
+                                             self.define_model,
+                                             create_scope_now_=True)
 
         self.outputs = {}
         self.losses = {}
@@ -51,15 +55,38 @@ class CoreModel(object):
             self.outputs[mode] = outputs
             self.losses[mode] = losses
             self.otters[mode] = others
-            self._build_optimizer()
+            if mode == 'train':
+                self._build_optimizer()
 
+        # TODO Move clean and summary to proper section
+        self.summary_ops = {}
         if self._train_model:
             _build('train')
+            summary = []
+            for idx, loss in enumerate(self.losses['train']):
+                summary.append(
+                    tf.summary.scalar(name='train/loss_{}'.format(idx), tensor=loss))
+            for idx, element in enumerate(self.otters['train']):
+                summary.append(
+                    tf.summary.scalar(name='train/otter_{}'.format(idx), tensor=element))
+            self.summary_ops['train'] = tf.summary.merge(summary)
 
         if self._validate_model:
             _build('validation')
+            summary = []
+            for idx, loss in enumerate(self.losses['validation']):
+                summary.append(
+                    tf.summary.scalar(name='val/loss_{}'.format(idx), tensor=loss))
+            for idx, element in enumerate(self.otters['validation']):
+                summary.append(
+                    tf.summary.scalar(name='val/otter_{}'.format(idx), tensor=element))
+            self.summary_ops['validation'] = tf.summary.merge(summary)
+
+        self.writer = tf.summary.FileWriter(self.output_path,
+                                            self.session.graph)
 
         # TODO Add routine to save
+        logging.info('Model construction complete.')
 
     def _build_optimizer(self, optimizer_to_use=tf.train.AdamOptimizer):
         self.optimize_ops = []
@@ -79,25 +106,31 @@ class CoreModel(object):
 
         fetches = {}
         fetches['optimize_ops'] = self.optimize_ops
-        fetches['losses'] = self.losses['train']
-        if self.otters['train']:
-            fetches['others'] = self.otters['train']
+        # fetches['losses'] = self.losses['train']
+        # if self.otters['train']:
+        #     fetches['others'] = self.otters['train']
+        fetches['summary_ops'] = self.summary_ops['train']
 
         for step in range(steps):  # TODO start from checkpoint steps
-            # TODO TRAIN
-            train_out = self.session.run(fetches=fetches) # Training output not used for now #TODO Add to summary
-            if step % 100 == 0:
-                logging.info('Step {} -- Validation result: {}'.format(step, self._validate()))
+            # TODO clean code and optimize ops
+            train_out = self.session.run(fetches=fetches)
+            self.writer.add_summary(train_out['summary_ops'], global_step=step)
+            if step % 50 == 0: # TODO every how many steps? Automate?
+                logging.info('Step {} -- Validation result: {}'.format(step, self._validate(step)))
 
         logging.info('Done training.')
 
-    def _validate(self):
+    def _validate(self, global_step):
+        """ Run network on validation set """
+        # Todo clean summaries and add example outputs
         fetches = {}
         fetches['losses'] = self.losses['validation']
         if self.otters['train']:
             fetches['others'] = self.otters['validation']
-
+        fetches['summary_ops'] = self.summary_ops['validation']
         validation_out = self.session.run(fetches=fetches)
+        self.writer.add_summary(validation_out['summary_ops'], global_step=global_step)
+        del validation_out['summary_ops']
         return validation_out
 
     def evaluate(self):

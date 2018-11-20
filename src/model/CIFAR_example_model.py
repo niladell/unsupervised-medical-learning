@@ -64,5 +64,6 @@ class ExampleModel(CoreModel):
 
         outputs = {'logits': logits, 'probabilities': probabilities, 'prediction': predictions}
 
-        return outputs, [loss], [accuracy, predictions, labels]  # outputs, losses, metrics/otters
+        # TODO allow non-scalar outputs for the summaries
+        return outputs, [loss], [accuracy] #, predictions, labels]  # outputs, losses, metrics/otters (this last one for now scalars.. work in progress)
         # TODO Temporal unconsistent formatting on the return elements: use dict, tf.somthing, list...?

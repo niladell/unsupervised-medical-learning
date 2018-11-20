@@ -8,7 +8,7 @@ class ExampleModel(CoreModel):
     Example definition of a model/network architecture using this template.
     """
 
-    def define_model(self, data_source, mode):
+    def define_model(self, data_source, mode):  #pylint: disable=E0202
         """
         Example definition of a network
 
@@ -56,10 +56,13 @@ class ExampleModel(CoreModel):
         logits = tf.layers.dense(inputs=dropout, units=10)
 
         loss = tf.losses.sparse_softmax_cross_entropy(labels=labels, logits=logits)
+        probabilities = tf.nn.softmax(logits, name='softmax_layer')
+        predictions = tf.argmax(probabilities, axis=1, output_type=tf.int32)
 
-        outputs = {'prediction': logits, 'probabilities': tf.nn.softmax(logits, name='softmax_layer')}
-        correct_prediction = tf.equal(tf.argmax(logits, axis=1, output_type=tf.int32), labels)
+        correct_prediction = tf.equal(predictions, labels)
         accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
-        return outputs, [loss], [accuracy]  # outputs, losses, metrics/otters
+        outputs = {'logits': logits, 'probabilities': probabilities, 'prediction': predictions}
+
+        return outputs, [loss], [accuracy, predictions, labels]  # outputs, losses, metrics/otters
         # TODO Temporal unconsistent formatting on the return elements: use dict, tf.somthing, list...?

@@ -1,6 +1,6 @@
 """Set of core packages"""
 
-from .cifar_manager import CIFAR10
+from .CIFAR_manager import CIFAR10
 from .cq500_manager import CQ500
 
 __all__ = (

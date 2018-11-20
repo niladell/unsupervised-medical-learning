@@ -8,10 +8,10 @@ class CoreModel(object):
 
     def __init__(self,
                  tf_session: tf.Session,
+                 learning_rate: float,
                  training_dataset: DataManager = None,
                  validation_dataset: DataManager = None,
-                 learning_rate: float = 0.1
-                  ):
+                ):
         self.session = tf_session
         self.dataset = {}
         if training_dataset: self.dataset['train'] = training_dataset.datasource

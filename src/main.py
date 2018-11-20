@@ -19,10 +19,11 @@ with tf.Session() as session:
     validation_dataset = CIFAR10(tf_session=session, file_name='test_batch')
 
     model = ExampleModel(tf_session=session,
+                         learning_rate=0.001,
                          training_dataset=training_dataset,
-                         validation_dataset=validation_dataset,
-                         learning_rate=0.1)
+                         validation_dataset=validation_dataset
+                        )
 
     model.build_model()
 
-    model.train(1001)
+    model.train(10001)

@@ -1,6 +1,6 @@
 """Precise model definition """
 
-from .example_model import ExampleModel
+from .CIFAR_example_model import ExampleModel
 
 __all__ = (
     'ExampleModel',

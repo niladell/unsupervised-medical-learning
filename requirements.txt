@@ -1,0 +1,4 @@
+numpy==1.15.2
+absl_py==0.5.0
+tensorflow_hub==0.1.1
+absl==0.0

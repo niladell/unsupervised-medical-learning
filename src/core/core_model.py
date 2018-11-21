@@ -1,3 +1,8 @@
+""" Core tensorflow model that basically encapsulates all the basic ops
+    in order to run an experiment.
+"""
+
+import os
 from absl import logging
 
 import tensorflow as tf
@@ -11,10 +16,14 @@ class CoreModel(object):
                  learning_rate: float,
                  training_dataset: DataManager = None,
                  validation_dataset: DataManager = None,
-                 output_path: str = './outputs'
+                 output_path: str = '../outputs'
                 ):
+
+        if output_path[-1] == '/':
+            output_path = output_path[:-1]
+        self.output_path = output_path + '/' + self.__class__.__name__
+
         self.session = tf_session
-        self.output_path = output_path
         self.dataset = {}
         if training_dataset: self.dataset['train'] = training_dataset.datasource
         if validation_dataset: self.dataset['validation'] = validation_dataset.datasource
@@ -85,6 +94,7 @@ class CoreModel(object):
         self.writer = tf.summary.FileWriter(self.output_path,
                                             self.session.graph)
 
+        self.saver = tf.train.Saver()
         # TODO Add routine to save
         logging.info('Model construction complete.')
 
@@ -103,6 +113,7 @@ class CoreModel(object):
     def train(self, steps):
         # Initialize or check if checkpoint # TODO add checkpoint manager
         self.session.run(tf.global_variables_initializer())
+        initial_step = self._restore()
 
         fetches = {}
         fetches['optimize_ops'] = self.optimize_ops
@@ -111,13 +122,15 @@ class CoreModel(object):
         #     fetches['others'] = self.otters['train']
         fetches['summary_ops'] = self.summary_ops['train']
 
-        for step in range(steps):  # TODO start from checkpoint steps
+        for step in range(initial_step, steps):  # TODO start from checkpoint steps
             # TODO clean code and optimize ops
             train_out = self.session.run(fetches=fetches)
             self.writer.add_summary(train_out['summary_ops'], global_step=step)
             if step % 50 == 0: # TODO every how many steps? Automate?
-                logging.info('Step {} -- Validation result: {}'.format(step, self._validate(step)))
-
+                val = self._validate(step)
+                logging.info('Step {} -- Validation result: {}'.format(step, val))
+            if step % 1000 == 0:  # For now just another arbitrary number (how heavy is saving?)
+                self._save(step)
         logging.info('Done training.')
 
     def _validate(self, global_step):
@@ -132,6 +145,34 @@ class CoreModel(object):
         self.writer.add_summary(validation_out['summary_ops'], global_step=global_step)
         del validation_out['summary_ops']
         return validation_out
+
+    def _save(self, step):
+        """Save the model weights.
+
+        Args:
+            step (int): Training step.
+        """
+
+        output_path = self.output_path + '/checkpoints/'
+        if not os.path.isdir(output_path):
+            os.makedirs(output_path)
+        self.saver.save(self.session, save_path=output_path,global_step=step)
+
+    def _restore(self):
+        """Restore the trained variables from the last stored checkpoint
+
+        Returns:
+            int: The training step when this model was saved.
+        """
+
+        output_path = self.output_path + '/checkpoints/'
+        checkpoint = tf.train.latest_checkpoint(output_path)
+        if checkpoint:
+            self.saver.restore(self.session, save_path=checkpoint)
+            restored_step = int(checkpoint.split('-')[-1])  # Robust enough?
+            return restored_step
+        logging.info('Starting training from scratch.')
+        return 0
 
     def evaluate(self):
         pass

@@ -1,9 +1,13 @@
 import tensorflow as tf
 import tensorflow_hub as hub
 
-from core import CoreModel
+from core import CoreModel, CoreModelTPU
 
-class ExampleModel(CoreModel):
+use_tpu = True # TODO Pass from the outside
+
+model = CoreModelTPU if use_tpu else CoreModel
+
+class ExampleModel(model):
     """
     Example definition of a model/network architecture using this template.
     """

@@ -1,10 +1,12 @@
 from absl import flags
 from absl import logging
+import coloredlogs
 logging.set_verbosity(logging.INFO)
-
+#coloredlogs.install(level='INFO')
 from os import walk
 import pickle
 import numpy as np
+import functools
 
 import tensorflow as tf
 from tensorflow.data import Dataset
@@ -15,45 +17,20 @@ from core import DataManager
 from model import ExampleModel
 from datamanager import CIFAR10
 
-
+logging.info('Start')
 model = ExampleModel(tf_session=None,
                         learning_rate=0.001,
                         data_dir= 'gs://iowa_bucket/cifar10/data/',  # Dataset in GCloud Bucket
                         use_tpu=True,
                         output_path='gs://iowa_bucket/cifar10/outputs/'
                     )
-
+logging.info('Build')
 model.build_model()
 
+SAMPLE_NUM = 50000
+CHANNELS = 3
+SIDE = 32
 ### HIGHLY PROTOTIPY VERSON BELOW -- TODO MOVE TO DATA MANAGER
-
-def _unpickle(file):
-    """
-    Unpicke batch CIFAR10 files
-
-    Args:
-        file (str): File name
-
-    Returns:
-        (dict): Extracted data from files
-    """
-
-    with open(file, 'rb') as fo:
-        raw = pickle.load(fo, encoding='bytes')
-    return raw
-
-def _input_files(path, file_name):
-    """
-    Extract all the CIFAR-10 file names in the dataset folder.
-    """
-    logging.info(path)
-    files = []
-    for p,d,folder in walk(path):
-        print(p,d,folder)
-        for f in folder:
-            if file_name in f:
-                files.append(path + f)
-    return files
 
 def _convert_images(raw):
     """
@@ -70,7 +47,7 @@ def _convert_images(raw):
     images = images.transpose([0, 2, 3, 1])
     return images
 
-def input_parser(file):
+def input_parser(tfrecord):
     """
     Parse CIFAR input files
 
@@ -78,14 +55,45 @@ def input_parser(file):
         (np.array, list): Returns the images and the lables
     """
 
-    # self._input_files()
-    # images = None
-    # labels = []
-    # for i in self.files:
-    raw = _unpickle(file) # -> dict_keys([b'batch_label', b'labels', b'data', b'filenames'])
-    labels = raw[b'labels']
-    images = _convert_images(raw[b'data'])
-    return tf.cast(images, dtype=tf.float32), labels
+    features = {
+        'images':   tf.FixedLenFeature([], tf.string),
+        'labels':   tf.FixedLenFeature([], tf.string),
+        'channels': tf.FixedLenFeature([], tf.int64),
+        'height':   tf.FixedLenFeature([], tf.int64),
+        'width':    tf.FixedLenFeature([], tf.int64),
+        'samples':  tf.FixedLenFeature([], tf.int64)
+    }
+
+    sample = tf.parse_single_example(tfrecord, features)
+    images = tf.decode_raw(sample['images'], out_type=tf.float32)
+    #images = tf.reshape(images, shape=[])
+    # images = tf.reshape(images, [sample['samples'], sample['channels'],
+    #                             sample['height'], sample['width']])
+    # images.set_shape([sample['samples'].values, sample['channels'].values,
+    #                  sample['height'].values, sample['width'].values])
+    images = tf.reshape(images, [SIDE, SIDE, CHANNELS])
+
+    labels = tf.decode_raw(sample['labels'], out_type=tf.int64)
+    labels = tf.cast(tf.reshape(labels, shape=[1]), tf.int32)
+    # labels.set_shape([])
+    logging.info('TFRecord: {}, {} '.format(images, labels))
+
+    #assert False
+    return images, labels
+
+def set_shapes(batch_size, images, labels):
+    """Statically set the batch_size dimension."""
+    transpose_input = False # TODO Delete this thing
+    if transpose_input:
+        images.set_shape(images.get_shape().merge_with(
+            tf.TensorShape([None, None, None, batch_size])))
+        labels.set_shape(labels.get_shape().merge_with(
+            tf.TensorShape([batch_size])))
+    else:
+        images.set_shape(images.get_shape().merge_with(
+            tf.TensorShape([batch_size, None, None, None])))
+        labels.set_shape(labels.get_shape().merge_with(
+            tf.TensorShape([batch_size])))
 
 
 def input_fn(params):
@@ -95,21 +103,29 @@ def input_fn(params):
     # Retrieves the batch size for the current shard. The # of shards is
     # computed according to the input pipeline deployment. See
     # `tf.contrib.tpu.RunConfig` for details.
-    image_files = _input_files(data_dir, 'data_batch')
-    logging.info(image_files)
-    
-    # ds = Dataset.from_tensor_slices(input_parser(image_files[0]))
+    # image_files = _input_files(data_dir, 'data_batch')
+    image_files = ['gs://iowa_bucket/cifar10/data/data_train.tfrecord']
+    logging.info('Image files {}'.format(image_files))
+    logging.debug(' format {} and inner {}'.format(type(image_files), type(image_files[0])))
+    #ds = Dataset.from_tensor_slices(image_files)
+    ds = tf.data.TFRecordDataset(image_files)
+    ds = ds.map(input_parser)
+    # ds = ds.map(lambda filename: tf.py_func(input_parser, [filename], [tf.float32, tf.int32]))
     # ds = Dataset.from_tensor_slices(image_files).interleave(
     #     lambda x: Dataset.from_tensor_slices(x).map(input_parser),
     #     cycle_length=1, block_length=1
     #     )
-    ds = Dataset.from_tensor_slices((tf.random_normal([1000, 32, 32, 1], name='features'),
-                                     tf.random_uniform([1000, 1], maxval=10, dtype=tf.int32, name='labels')))
+    #ds = Dataset.from_tensor_slices((tf.random_normal([1000, 32, 32, 1], name='features'),
+    #                                 tf.random_uniform([1000, 1], maxval=10, dtype=tf.int32, name='labels')))
 
     ds = ds.cache().repeat()
-    ds = ds.batch(batch_size=batch_size, drop_remainder=True).prefetch(tf.contrib.data.AUTOTUNE)
+    ds = ds.batch(batch_size=batch_size, drop_remainder=True)
+
+    #ds = ds.map(functools.partial(set_shapes, batch_size))
+
+    ds.prefetch(tf.contrib.data.AUTOTUNE)
     return ds #ds.make_initializable_iterator().get_next()
 
 ### END
-
+logging.info('Train')
 model.train(10001, input_fn)

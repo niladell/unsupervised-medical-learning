@@ -56,30 +56,43 @@ def input_parser(tfrecord):
     """
 
     features = {
-        'images':   tf.FixedLenFeature([], tf.string),
-        'labels':   tf.FixedLenFeature([], tf.string),
-        'channels': tf.FixedLenFeature([], tf.int64),
-        'height':   tf.FixedLenFeature([], tf.int64),
-        'width':    tf.FixedLenFeature([], tf.int64),
-        'samples':  tf.FixedLenFeature([], tf.int64)
+        'image':   tf.FixedLenFeature([], tf.string),
+        'label':   tf.FixedLenFeature([], tf.int64),
+        # 'channels': tf.FixedLenFeature([], tf.int64),
+        # 'height':   tf.FixedLenFeature([], tf.int64),
+        # 'width':    tf.FixedLenFeature([], tf.int64),
+        # 'samples':  tf.FixedLenFeature([], tf.int64)
     }
 
     sample = tf.parse_single_example(tfrecord, features)
-    images = tf.decode_raw(sample['images'], out_type=tf.float32)
-    #images = tf.reshape(images, shape=[])
-    # images = tf.reshape(images, [sample['samples'], sample['channels'],
-    #                             sample['height'], sample['width']])
-    # images.set_shape([sample['samples'].values, sample['channels'].values,
-    #                  sample['height'].values, sample['width'].values])
-    images = tf.reshape(images, [SIDE, SIDE, CHANNELS])
+    # images = tf.decode_raw(sample['images'], out_type=tf.uint8)
+    # images.set_shape([SIDE * SIDE * CHANNELS])
+    # labels = tf.decode_raw(sample['labels'], out_type=tf.int64)
+    # #images = tf.reshape(images, shape=[])
+    # # images = tf.reshape(images, [sample['samples'], sample['channels'],
+    # #                             sample['height'], sample['width']])
+    # # images.set_shape([sample['samples'].values, sample['channels'].values,
+    # #                  sample['height'].values, sample['width'].values])
+    # images = tf.reshape(images, [SIDE, SIDE, CHANNELS])
 
-    labels = tf.decode_raw(sample['labels'], out_type=tf.int64)
-    labels = tf.cast(tf.reshape(labels, shape=[1]), tf.int32)
-    # labels.set_shape([])
-    logging.info('TFRecord: {}, {} '.format(images, labels))
+    # images = tf.cast(images, tf.float32)
+    # labels = tf.cast(tf.reshape(labels, shape=[1]), tf.int32)
+    # # labels.set_shape([])
+    # logging.info('TFRecord: {}, {} '.format(images, labels))
+
+    image = tf.decode_raw(sample['image'], tf.uint8)
+    image.set_shape([CHANNELS * SIDE * SIDE])
+
+    # Reshape from [depth * height * width] to [depth, height, width].
+    image = tf.cast(
+        tf.transpose(tf.reshape(image, [SIDE, SIDE, CHANNELS]), [0 ,1, 2]),
+        tf.float32)
+
+    label = tf.cast(features['label'], tf.int32)
+    # label = tf.cast(sample['labels'], tf.int32)
 
     #assert False
-    return images, labels
+    return image, label
 
 def set_shapes(batch_size, images, labels):
     """Statically set the batch_size dimension."""
@@ -90,41 +103,80 @@ def set_shapes(batch_size, images, labels):
         labels.set_shape(labels.get_shape().merge_with(
             tf.TensorShape([batch_size])))
     else:
+        # images.set_shape(images.get_shape().merge_with(
+        #     tf.TensorShape([batch_size, None, None, None])))
         images.set_shape(images.get_shape().merge_with(
-            tf.TensorShape([batch_size, None, None, None])))
+            tf.TensorShape([batch_size, SIDE, SIDE, CHANNELS])))
         labels.set_shape(labels.get_shape().merge_with(
-            tf.TensorShape([batch_size])))
+            tf.TensorShape([batch_size, None])))
+    return images, labels
 
+# TODO REFACTOR ALL
+# def input_fn(params):
+#     """train_input_fn defines the input pipeline used for training."""
+#     batch_size = params["batch_size"]
+#     data_dir = params["data_dir"]
+#     # Retrieves the batch size for the current shard. The # of shards is
+#     # computed according to the input pipeline deployment. See
+#     # `tf.contrib.tpu.RunConfig` for details.
+#     # image_files = _input_files(data_dir, 'data_batch')
+#     image_files = ['gs://iowa_bucket/cifar-10-data/train.tfrecord']
+#     logging.info('Image files {}'.format(image_files))
+#     logging.debug(' format {} and inner {}'.format(type(image_files), type(image_files[0])))
+#     #ds = Dataset.from_tensor_slices(image_files)
+#     ds = tf.data.TFRecordDataset(image_files)
+#     ds = ds.map(input_parser)
+#     # ds = ds.map(lambda filename: tf.py_func(input_parser, [filename], [tf.float32, tf.int32]))
+#     # ds = Dataset.from_tensor_slices(image_files).interleave(
+#     #     lambda x: Dataset.from_tensor_slices(x).map(input_parser),
+#     #     cycle_length=1, block_length=1
+#     #     )
+#     #ds = Dataset.from_tensor_slices((tf.random_normal([1000, 32, 32, 1], name='features'),
+#     #                                 tf.random_uniform([1000, 1], maxval=10, dtype=tf.int32, name='labels')))
+
+#     # ds = ds.cache().repeat()
+#     ds = ds.batch(batch_size=batch_size, drop_remainder=True)
+
+#     # ds = ds.map(functools.partial(set_shapes, batch_size))
+
+#     # ds = ds.prefetch(tf.contrib.data.AUTOTUNE)
+#     return ds.make_one_shot_iterator().get_next()
+#     # iterator = ds.make_initializable_iterator()
+#     # tf.train.SessionRunHook.begin(iterator.initializer)
+#     # return iterator.get_next()
 
 def input_fn(params):
-    """train_input_fn defines the input pipeline used for training."""
-    batch_size = params["batch_size"]
-    data_dir = params["data_dir"]
-    # Retrieves the batch size for the current shard. The # of shards is
-    # computed according to the input pipeline deployment. See
-    # `tf.contrib.tpu.RunConfig` for details.
-    # image_files = _input_files(data_dir, 'data_batch')
-    image_files = ['gs://iowa_bucket/cifar10/data/data_train.tfrecord']
-    logging.info('Image files {}'.format(image_files))
-    logging.debug(' format {} and inner {}'.format(type(image_files), type(image_files[0])))
-    #ds = Dataset.from_tensor_slices(image_files)
-    ds = tf.data.TFRecordDataset(image_files)
-    ds = ds.map(input_parser)
-    # ds = ds.map(lambda filename: tf.py_func(input_parser, [filename], [tf.float32, tf.int32]))
-    # ds = Dataset.from_tensor_slices(image_files).interleave(
-    #     lambda x: Dataset.from_tensor_slices(x).map(input_parser),
-    #     cycle_length=1, block_length=1
-    #     )
-    #ds = Dataset.from_tensor_slices((tf.random_normal([1000, 32, 32, 1], name='features'),
-    #                                 tf.random_uniform([1000, 1], maxval=10, dtype=tf.int32, name='labels')))
+  """Read CIFAR input data from a TFRecord dataset.
+  
+  Function taken from tensorflow/tpu cifar_keras repo"""
+  del params
+  batch_size = 128
+  def parser(serialized_example):
+    """Parses a single tf.Example into image and label tensors."""
+    features = tf.parse_single_example(
+        serialized_example,
+        features={
+            "image": tf.FixedLenFeature([], tf.string),
+            "label": tf.FixedLenFeature([], tf.int64),
+        })
+    image = tf.decode_raw(features["image"], tf.uint8)
+    image.set_shape([3*32*32])
+    image = tf.cast(image, tf.float32) * (1. / 255) - 0.5
+    image = tf.reshape(image, [32, 32, 3])
+    label = tf.cast(features["label"], tf.int32)
+    logging.info(image)
+    return image, label
 
-    ds = ds.cache().repeat()
-    ds = ds.batch(batch_size=batch_size, drop_remainder=True)
+  # TEMPORAL
+  image_files = ['gs://iowa_bucket/cifar-10-data/train.tfrecords']
 
-    #ds = ds.map(functools.partial(set_shapes, batch_size))
+  dataset = tf.data.TFRecordDataset([image_files])
+  dataset = dataset.map(parser, num_parallel_calls=batch_size)
+  dataset = dataset.prefetch(4 * batch_size).cache().repeat()
+  dataset = dataset.batch(batch_size, drop_remainder=True)
+  dataset = dataset.prefetch(1)
+  return dataset
 
-    ds.prefetch(tf.contrib.data.AUTOTUNE)
-    return ds #ds.make_initializable_iterator().get_next()
 
 ### END
 logging.info('Train')

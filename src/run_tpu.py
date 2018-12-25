@@ -9,6 +9,8 @@ from os import walk
 import pickle
 import numpy as np
 import functools
+from PIL import Image
+
 
 import tensorflow as tf
 from tensorflow.data import Dataset
@@ -50,7 +52,7 @@ flags.DEFINE_string(
     help='Project name for the Cloud TPU-enabled project. If not specified, we '
     'will attempt to automatically detect the GCE project from metadata.')
 flags.DEFINE_string(
-    'tpu_zone', default=None,
+    'tpu_zone', default='us-central1-f',
     help='GCE zone where the Cloud TPU is located in. If not specified, we '
     'will attempt to automatically detect the GCE project from metadata.')
 
@@ -63,10 +65,10 @@ flags.DEFINE_integer('noise_dim', 64,
 flags.DEFINE_integer('batch_size', 1024,
                      'Batch size for both generator and discriminator')
 flags.DEFINE_integer('num_shards', None, 'Number of TPU chips')
-flags.DEFINE_integer('train_steps', 10000, 'Number of training steps')
-flags.DEFINE_integer('train_steps_per_eval', 1000,
+flags.DEFINE_integer('train_steps', 100000, 'Number of training steps')
+flags.DEFINE_integer('train_steps_per_eval', 5000,
                      'Steps per eval and image generation')
-flags.DEFINE_integer('iterations_per_loop', 100,
+flags.DEFINE_integer('iterations_per_loop', 500,
                      'Steps per interior TPU loop. Should be less than'
                      ' --train_steps_per_eval')
 flags.DEFINE_float('learning_rate', 0.0002, 'LR for both D and G')
@@ -78,11 +80,17 @@ flags.DEFINE_boolean('use_tpu', True, 'Use TPU for training')
 FLAGS(sys.argv)
 ### HIGHLY PROTOTIPY VERSON BELOW -- TODO MOVE TO DATA MANAGER
 
-def input_fn():
+def convert_array_to_image(array):
+  """Converts a numpy array to a PIL Image and undoes any rescaling."""
+  img = Image.fromarray(np.uint8((array + 1.0) / 2.0 * 255), mode='RGB')
+  return img
+
+
+def input_fn(params):
     """Read CIFAR input data from a TFRecord dataset.
-    
+
     Function taken from tensorflow/tpu cifar_keras repo"""
-    # del params
+    del params
     batch_size = BATCH_SIZE
     def parser(serialized_example):
         """Parses a single tf.Example into image and label tensors."""
@@ -97,10 +105,10 @@ def input_fn():
         image = tf.cast(image, tf.float32) * (1. / 255) - 0.5
         image = tf.reshape(image, [32, 32, 3])
         label = tf.cast(features["label"], tf.int32)
-        logging.info(image)
-        noise = tf.random_normal([NOISE_DIMS])
-        return {'noise': noise, 'images': image} #, label
-
+        # logging.info(image)
+        # noise = tf.random_normal([NOISE_DIMS])
+        # return {'noise': noise, 'images': image} #, label
+        return image, label
     # TEMPORAL
     image_files = ['gs://iowa_bucket/cifar-10-data/train.tfrecords']
 
@@ -108,96 +116,169 @@ def input_fn():
     dataset = dataset.map(parser, num_parallel_calls=batch_size)
     dataset = dataset.prefetch(4 * batch_size).cache().repeat()
     dataset = dataset.batch(batch_size, drop_remainder=True)
-    dataset = dataset.prefetch(1)
-    return dataset
+    dataset = dataset.prefetch(2)
+    # return dataset
+    images, labels = dataset.make_initializable_iterator().get_next()
+    images, labels = dataset.make_one_shot_iterator().get_next()
+    # TODO why initializable vs one_shot
+
+    random_noise = tf.random_normal([batch_size, NOISE_DIMS])
+
+    features = {
+        'images': images,
+        'noise': random_noise}
+
+    return features, labels
+
 
 def generate_input_fn(is_training):
   """Creates input_fn depending on whether the code is training or not."""
-  return input_fn()
+  return input_fn
 
 leaky_relu = lambda net: tf.nn.leaky_relu(net, alpha=0.01)
 
+
+def noise_input_fn(params):
+  """Input function for generating samples for PREDICT mode.
+
+  Generates a single Tensor of fixed random noise. Use tf.data.Dataset to
+  signal to the estimator when to terminate the generator returned by
+  predict().
+
+  Args:
+    params: param `dict` passed by TPUEstimator.
+
+  Returns:
+    1-element `dict` containing the randomly generated noise.
+  """
+  params['batch_size'] = BATCH_SIZE
+  np.random.seed(0)
+  noise_dataset = tf.data.Dataset.from_tensors(tf.constant(
+      np.random.randn(params['batch_size'], FLAGS.noise_dim), dtype=tf.float32))
+  noise = noise_dataset.make_one_shot_iterator().get_next()
+  return {'noise': noise}, None
+
+def _batch_norm(x, is_training):
+    # TODO For now using default params from DCGAN
+    return tf.layers.batch_normalization(
+        x, momentum=0.9, epsilon=1e-5, training=is_training)
+
 def generator_fn(noise, weight_decay=2.5e-5, is_training=True):
-    """Simple generator to produce MNIST images.
+    """Simple generator to produce CIFAR images.
 
     Args:
         noise: A single Tensor representing noise.
         weight_decay: The value of the l2 weight decay.
         is_training: If `True`, batch norm uses batch statistics. If `False`, batch
-            norm uses the exponential moving average collected from population 
+            norm uses the exponential moving average collected from population
             statistics.
 
     Returns:
         A generated image in the range [-1, 1].
     """
-    with framework.arg_scope(
-        [layers.fully_connected, layers.conv2d_transpose],
-        activation_fn=tf.nn.relu, normalizer_fn=layers.batch_norm,
-        weights_regularizer=layers.l2_regularizer(weight_decay)),\
-    framework.arg_scope([layers.batch_norm], is_training=is_training,
-                        zero_debias_moving_mean=True):
-        logging.info(noise)
-        net = layers.fully_connected(noise, 1024)
-        logging.info(net)
-        net = layers.fully_connected(net, 7 * 7 * 256)
-        logging.info(net)
-        net = tf.reshape(net, [-1, 7, 7, 256])
-        logging.info(net)
-        net = layers.conv2d_transpose(net, 64, [4, 4], stride=2)
-        logging.info(net)
-        net = layers.conv2d_transpose(net, 32, [5, 5], stride=2, padding='VALID')
-        logging.info(net)
-        # TODO CHECK A PROPER WAY OF DOING THIS
-        net = layers.conv2d_transpose(net, 32, [2, 2], stride=1, padding='VALID')
-        logging.info(net)
+    with tf.variable_scope('Generator', reuse=tf.AUTO_REUSE):
+        net = layers.fully_connected(noise, 4096)
+        net = tf.nn.relu(_batch_norm(net, is_training))
+        net = tf.reshape(net, [-1, 4, 4, 256])
+        net = layers.conv2d_transpose(net, 128, [5, 5], stride=2)
+        net = tf.nn.relu(_batch_norm(net, is_training))
 
-        net = layers.conv2d(net, CHANNELS, 4, normalizer_fn=None, activation_fn=tf.tanh)
-        logging.info(net)
-    return net
+        net = layers.conv2d_transpose(net, 64, [4, 4], stride=2)
+        net = tf.nn.relu(_batch_norm(net, is_training))
+
+        net = layers.conv2d_transpose(net, 3, [4, 4], stride=2)
+        net = tf.nn.relu(_batch_norm(net, is_training))
+
+        return net
+        # TODO For now using a "simpler" net + not using frameowkr
+        # with framework.arg_scope(
+        #     [layers.fully_connected, layers.conv2d_transpose],
+        #     activation_fn=tf.nn.relu, normalizer_fn=layers.batch_norm,
+        #     weights_regularizer=layers.l2_regularizer(weight_decay)),\
+        # framework.arg_scope([layers.batch_norm], is_training=is_training,
+        #                     zero_debias_moving_mean=True):
+        #     logging.info(noise)
+
+        #     net = layers.fully_connected(noise, 1024)
+        #     net = tf.nn.relu(_batch_norm(netIdk why the following "framework" thing is needed. Needa check, is_training))
+        #     logging.info(net)
+
+        #     net = layers.fully_connected(net, 7 * 7 * 256)
+        #     net = tf.nn.relu(_batch_norm(net, is_training))
+        #     logging.info(net)
+
+        #     net = tf.reshape(net, [-1, 7, 7, 256])
+        #     logging.info(net)
+
+        #     net = layers.conv2d_transpose(net, 64, [4, 4], stride=2)
+        #     net = tf.nn.relu(_batch_norm(net, is_training))
+        #     logging.info(net)
+
+        #     net = layers.conv2d_transpose(net, 32, [5, 5], stride=2, padding='VALID')
+        #     net = tf.nn.relu(_batch_norm(net, is_training))
+        #     logging.info(net)
+
+        #     # TODO CHECK A PROPER WAY OF DOING THIS
+        #     net = layers.conv2d_transpose(net, 32, [2, 2], stride=1, padding='VALID')
+        #     net = tf.nn.relu(_batch_norm(net, is_training))
+        #     logging.info(net)
+
+        #     net = layers.conv2d(net, CHANNELS, 4, normalizer_fn=None, activation_fn=tf.tanh)
+        #     net = tf.tanh(net)
+        #     logging.info(net)
+        return net
+
 
 def discriminator_fn(img, weight_decay=2.5e-5, is_training=True):
     """Discriminator network on MNIST digits.
-    
+
     Args:
         img: Real or generated MNIST digits. Should be in the range [-1, 1].
         weight_decay: The L2 weight decay.
         is_training: If `True`, batch norm uses batch statistics. If `False`, batch
-            norm uses the exponential moving average collected from population 
+            norm uses the exponential moving average collected from population
             statistics.
-    
+
     Returns:
         Logits for the probability that the image is real.
     """
-    with framework.arg_scope(
-        [layers.conv2d, layers.fully_connected],
-        activation_fn=leaky_relu, normalizer_fn=None,
-        weights_regularizer=layers.l2_regularizer(weight_decay),
-        biases_regularizer=layers.l2_regularizer(weight_decay)):
-        net = layers.conv2d(img, 64, [4, 4], stride=2)
-        net = layers.conv2d(net, 128, [4, 4], stride=2)
-        net = layers.flatten(net)
-        with framework.arg_scope([layers.batch_norm], is_training=is_training):
-            net = layers.fully_connected(net, 1024, normalizer_fn=layers.batch_norm)
-        return layers.linear(net, 1)
+    with tf.variable_scope('Discriminator', reuse=tf.AUTO_REUSE):
+        # TODO For not using framework
+        # with framework.arg_scope(
+        #     [layers.conv2d, layers.fully_connected],
+        #     activation_fn=leaky_relu, normalizer_fn=None,
+        #     weights_regularizer=layers.l2_regularizer(weight_decay),
+        #     biases_regularizer=layers.l2_regularizer(weight_decay)):
+        net = layers.conv2d(img, 64, [5, 5], stride=2)
+        net = tf.nn.relu(_batch_norm(net, is_training))
+
+        net = layers.conv2d(net, 128, [5, 5], stride=2)
+        net = tf.nn.relu(_batch_norm(net, is_training))
+
+        net = layers.conv2d(net, 256, [5, 5], stride=2)
+        net = tf.nn.relu(_batch_norm(net, is_training))
+
+        net = tf.reshape(net, [-1, 4 * 4 * 256])
+        net = layers.fully_connected(net, 1)
+        return net
 
 def model_fn(features, labels, mode, params):
 
-    del features
+    # del features
 
     if mode == tf.estimator.ModeKeys.PREDICT:
-        random_noise = features['noise']
+        noise = features['noise']
         predictions = {
             'generated_images': generator_fn(noise, is_training=False)
         }
-
-        return tpu.TPUEStimatorSpec(model=mode, predictions=predictions)
+        return tpu.TPUEstimatorSpec(mode=mode, predictions=predictions)
 
     batch_size = params['batch_size']
     images = features['images']
     noise = features['noise']
 
     is_training = (mode == tf.estimator.ModeKeys.TRAIN)
-    
+
     # Generate images
     g_images = generator_fn(noise=noise, is_training=is_training)
 
@@ -231,6 +312,11 @@ def model_fn(features, labels, mode, params):
         g_optimizer = tf.train.AdamOptimizer(
             learning_rate=FLAGS.learning_rate, beta1=0.5)
 
+        tf.logging.debug('All: %s\nDiscr: %s',
+                    tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
+                                            scope='Discriminator'),
+                    tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
+                                            scope='Discriminator'))
         if FLAGS.use_tpu:
             d_optimizer = tf.contrib.tpu.CrossShardOptimizer(d_optimizer)
             g_optimizer = tf.contrib.tpu.CrossShardOptimizer(g_optimizer)
@@ -336,12 +422,17 @@ while current_step < FLAGS.train_steps:
     # Render some generated images
     generated_iter = cpu_est.predict(input_fn=noise_input_fn)
     images = [p['generated_images'][:, :, :] for p in generated_iter]
-    assert len(images) == _NUM_VIZ_IMAGES
+    if len(images) != _NUM_VIZ_IMAGES:
+        tf.logging.info('Made %s images (when it should have been %s',
+            len(images), _NUM_VIZ_IMAGES)
+        images = images[:_NUM_VIZ_IMAGES]
+
+    # assert len(images) == _NUM_VIZ_IMAGES
     image_rows = [np.concatenate(images[i:i+10], axis=0)
                     for i in range(0, _NUM_VIZ_IMAGES, 10)]
     tiled_image = np.concatenate(image_rows, axis=1)
 
-    img = dataset.convert_array_to_image(tiled_image)
+    img = convert_array_to_image(tiled_image)
 
     step_string = str(current_step).zfill(5)
     file_obj = tf.gfile.Open(

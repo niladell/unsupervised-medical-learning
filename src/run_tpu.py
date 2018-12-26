@@ -1,3 +1,9 @@
+"""Prototype run file
+
+Example run command:
+python src/run_tpu.py --model_dir=gs://iowa_bucket/cifar10/outputs__1 --data_dir=gs://iowa_bucket/cifar10/data  --tpu=node-1
+"""
+
 import sys, os
 
 from absl import flags
@@ -59,6 +65,7 @@ flags.DEFINE_string(
 
 # Model specific paramenters
 flags.DEFINE_string('model_dir', '', 'Output model directory')
+flags.DEFINE_string('data_dir', '', 'Dataset directory')
 flags.DEFINE_integer('noise_dim', 64,
                      'Number of dimensions for the noise vector')
 flags.DEFINE_integer('batch_size', 1024,
@@ -111,9 +118,10 @@ def input_fn(params):
         label = tf.cast(features['label'], tf.int32)
 
         return image, label
-    # TEMPORAL
+    # TODO Pass all of this via on params
     # image_files = ['gs://iowa_bucket/cifar10/data/train.tfrecords']
-
+    image_files = [os.path.join(FLAGS.data_dir, 'train.tfrecords')]
+    tf.logging.info(image_files)
     dataset = tf.data.TFRecordDataset([image_files])
     dataset = dataset.map(parser, num_parallel_calls=batch_size)
     dataset = dataset.prefetch(4 * batch_size).cache().repeat()
@@ -188,7 +196,7 @@ def generator_fn(noise, weight_decay=2.5e-5, is_training=True):
         net = layers.conv2d_transpose(net, 64, [4, 4], stride=2)
         net = tf.nn.relu(_batch_norm(net, is_training))
 
-        net = layers.conv2d_transpose(net, 3, [4, 4], stride=2)
+        net = layers.conv2d_transpose(net, CHANNELS, [4, 4], stride=2)
         net = tf.nn.relu(_batch_norm(net, is_training))
 
         return net
@@ -228,7 +236,7 @@ def generator_fn(noise, weight_decay=2.5e-5, is_training=True):
         #     net = layers.conv2d(net, CHANNELS, 4, normalizer_fn=None, activation_fn=tf.tanh)
         #     net = tf.tanh(net)
         #     logging.info(net)
-        return net
+        # return net
 
 
 def discriminator_fn(img, weight_decay=2.5e-5, is_training=True):
@@ -314,7 +322,7 @@ def model_fn(features, labels, mode, params):
         g_optimizer = tf.train.AdamOptimizer(
             learning_rate=FLAGS.learning_rate, beta1=0.5)
 
-        tf.logging.debug('All: %s\nDiscr: %s',
+        tf.logging.debug('GLOBAL VARIABLES: \nAll: %s\nDiscr: %s',
                     tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
                                             scope='Discriminator'),
                     tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
@@ -361,16 +369,6 @@ def model_fn(features, labels, mode, params):
 
 
 logging.info('Start')
-noise_dims = 64
-# Create GAN estimator.
-# gan_estimator = tfgan.estimator.GANEstimator(
-#     model_dir='gs://iowa_bucket/cifar10/outputs/',
-#     generator_fn=generator_fn,
-#     discriminator_fn=discriminator_fn,
-#     generator_loss_fn=tfgan.losses.wasserstein_generator_loss,
-#     discriminator_loss_fn=tfgan.losses.wasserstein_discriminator_loss,
-#     generator_optimizer=tf.train.AdamOptimizer(0.1, 0.5),
-#     discriminator_optimizer=tf.train.AdamOptimizer(0.1, 0.5))
 
 tpu_cluster_resolver = tf.contrib.cluster_resolver.TPUClusterResolver(
     FLAGS.tpu,
@@ -473,25 +471,3 @@ while current_step < FLAGS.train_steps:
                         'generated_images', 'gen_%s.png' % (step_string)), 'w')
     img.save(file_obj, format='png')
     tf.logging.info('Finished generating images')
-
-
-
-# steps = 100000
-# gan_estimator.train(input_fn, steps=steps)
-
-# model = ExampleModel(tf_session=None,
-#                         learning_rate=0.001,
-#                         data_dir= 'gs://iowa_bucket/cifar10/data/',  # Dataset in GCloud Bucket
-#                         use_tpu=True,
-#                         output_path='gs://iowa_bucket/cifar10/outputs/'
-# )
-
-# logging.info('Build')
-# gan_estimator.build_model()
-
-
-
-
-# ### END
-# logging.info('Train')
-# gan_estimator.train(10001, input_fn)

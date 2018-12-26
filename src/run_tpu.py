@@ -29,13 +29,14 @@ framework = tf.contrib.framework
 # from datamanager import CIFAR10
 
 SAMPLE_NUM = 50000
+
+HEIGHT = WIDTH = 32
 CHANNELS = 3
-SIDE = 32
 
 BATCH_SIZE = 128
 NOISE_DIMS = 64
 _NUM_VIZ_IMAGES = 100   # For generating a 10x10 grid of generator samples
-
+NUM_EVAL_IMAGES = 100 # TODO No clue what is this
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
@@ -57,18 +58,16 @@ flags.DEFINE_string(
     'will attempt to automatically detect the GCE project from metadata.')
 
 # Model specific paramenters
-flags.DEFINE_string('dataset', 'mnist',
-                    'One of ["mnist", "cifar"]. Requires additional flags')
 flags.DEFINE_string('model_dir', '', 'Output model directory')
 flags.DEFINE_integer('noise_dim', 64,
                      'Number of dimensions for the noise vector')
 flags.DEFINE_integer('batch_size', 1024,
                      'Batch size for both generator and discriminator')
 flags.DEFINE_integer('num_shards', None, 'Number of TPU chips')
-flags.DEFINE_integer('train_steps', 100000, 'Number of training steps')
+flags.DEFINE_integer('train_steps', 50000, 'Number of training steps')
 flags.DEFINE_integer('train_steps_per_eval', 5000,
                      'Steps per eval and image generation')
-flags.DEFINE_integer('iterations_per_loop', 500,
+flags.DEFINE_integer('iterations_per_loop', 100,
                      'Steps per interior TPU loop. Should be less than'
                      ' --train_steps_per_eval')
 flags.DEFINE_float('learning_rate', 0.0002, 'LR for both D and G')
@@ -82,6 +81,8 @@ FLAGS(sys.argv)
 
 def convert_array_to_image(array):
   """Converts a numpy array to a PIL Image and undoes any rescaling."""
+#   img = Image.fromarray(array, mode='RGB')
+
   img = Image.fromarray(np.uint8((array + 1.0) / 2.0 * 255), mode='RGB')
   return img
 
@@ -101,16 +102,17 @@ def input_fn(params):
                 "label": tf.FixedLenFeature([], tf.int64),
             })
         image = tf.decode_raw(features["image"], tf.uint8)
-        image.set_shape([3*32*32])
-        image = tf.cast(image, tf.float32) * (1. / 255) - 0.5
-        image = tf.reshape(image, [32, 32, 3])
-        label = tf.cast(features["label"], tf.int32)
-        # logging.info(image)
-        # noise = tf.random_normal([NOISE_DIMS])
-        # return {'noise': noise, 'images': image} #, label
+        image.set_shape([CHANNELS * HEIGHT * WIDTH])
+        # Reshape from [depth * height * width] to [depth, height, width].
+        image = tf.cast(
+                tf.transpose(tf.reshape(image, [CHANNELS, HEIGHT, WIDTH]), [1, 2, 0]),
+                tf.float32) * (2. / 255) - 1
+
+        label = tf.cast(features['label'], tf.int32)
+
         return image, label
     # TEMPORAL
-    image_files = ['gs://iowa_bucket/cifar-10-data/train.tfrecords']
+    # image_files = ['gs://iowa_bucket/cifar10/data/train.tfrecords']
 
     dataset = tf.data.TFRecordDataset([image_files])
     dataset = dataset.map(parser, num_parallel_calls=batch_size)
@@ -417,7 +419,6 @@ def save_samples_from_data():
     sample_images = data_sampler.predict(input_fn=input_fn)
     # sample_images = input_fn(None)
     tf.logging.info('That ran')
-
     images = []
     for i in range(_NUM_VIZ_IMAGES):
         images.append(next(sample_images))
@@ -425,7 +426,6 @@ def save_samples_from_data():
     image_rows = [np.concatenate(images[i:i+10], axis=0)
                 for i in range(0, _NUM_VIZ_IMAGES, 10)]
     tiled_image = np.concatenate(image_rows, axis=1)
-
     img = convert_array_to_image(tiled_image)
 
     step_string = str(current_step).zfill(5)
@@ -448,7 +448,7 @@ while current_step < FLAGS.train_steps:
     if FLAGS.eval_loss:
         # Evaluate loss on test set
         metrics = est.evaluate(input_fn=generate_input_fn(False),
-                                steps=dataset.NUM_EVAL_IMAGES // FLAGS.batch_size)
+                                steps=NUM_EVAL_IMAGES // FLAGS.batch_size)
         tf.logging.info('Finished evaluating')
         tf.logging.info(metrics)
 

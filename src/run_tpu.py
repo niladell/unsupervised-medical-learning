@@ -403,6 +403,39 @@ tf.gfile.MakeDirs(os.path.join(FLAGS.model_dir, 'generated_images'))
 current_step = estimator._load_global_step_from_checkpoint_dir(FLAGS.model_dir)   # pylint: disable=protected-access,line-too-long
 tf.logging.info('Starting training for %d steps, current step: %d' %
                 (FLAGS.train_steps, current_step))
+
+
+def save_samples_from_data():
+    # Get some sample images
+    # CPU-based estimator used for PREDICT (generating images)
+    data_sampler = tf.contrib.tpu.TPUEstimator(
+        model_fn=lambda features, labels, mode, params: tpu.TPUEstimatorSpec(mode=mode, predictions=features['images']),
+        use_tpu=False,
+        config=config,
+        predict_batch_size=_NUM_VIZ_IMAGES)
+
+    sample_images = data_sampler.predict(input_fn=input_fn)
+    # sample_images = input_fn(None)
+    tf.logging.info('That ran')
+
+    images = []
+    for i in range(_NUM_VIZ_IMAGES):
+        images.append(next(sample_images))
+
+    image_rows = [np.concatenate(images[i:i+10], axis=0)
+                for i in range(0, _NUM_VIZ_IMAGES, 10)]
+    tiled_image = np.concatenate(image_rows, axis=1)
+
+    img = convert_array_to_image(tiled_image)
+
+    step_string = str(current_step).zfill(5)
+    file_obj = tf.gfile.Open(
+        os.path.join(FLAGS.model_dir,
+                        'generated_images', 'sampled_data.png'), 'w')
+    img.save(file_obj, format='png')
+save_samples_from_data()
+
+
 while current_step < FLAGS.train_steps:
     next_checkpoint = int(min(current_step + FLAGS.train_steps_per_eval,
                             FLAGS.train_steps))

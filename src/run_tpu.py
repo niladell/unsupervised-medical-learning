@@ -21,10 +21,11 @@ from PIL import Image
 import tensorflow as tf
 USE_ALTERNATIVE = False
 try:
-  from tensorflow.data import Dataset
-except:
-  Dataset = tf.data.Dataset
-  USE_ALTERNATIVE = True
+    from tensorflow.data import Dataset
+except ImportError:
+    tf.logging.warning('Using alternative settings due to old TF version')
+    Dataset = tf.data.Dataset
+    USE_ALTERNATIVE = True
 from tensorflow.contrib import tpu
 from tensorflow.contrib.cluster_resolver import TPUClusterResolver #pylint: disable=E0611
 from tensorflow.python.estimator import estimator
@@ -47,8 +48,8 @@ CHANNELS = 3
 
 BATCH_SIZE = 128
 NOISE_DIMS = 64
-_NUM_VIZ_IMAGES = 100   # For generating a 10x10 grid of generator samples
-NUM_EVAL_IMAGES = 100 # TODO No clue what is this
+_NUM_VIZ_IMAGES = 100  # For generating a 10x10 grid of generator samples
+_NUM_EVAL_IMAGES = 100  # Number of images used on the evaluation
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
@@ -104,8 +105,7 @@ def input_fn(params):
     """Read CIFAR input data from a TFRecord dataset.
 
     Function taken from tensorflow/tpu cifar_keras repo"""
-    del params
-    batch_size = BATCH_SIZE
+    batch_size = params['batch_size']
     def parser(serialized_example):
         """Parses a single tf.Example into image and label tensors."""
         features = tf.parse_single_example(
@@ -123,9 +123,13 @@ def input_fn(params):
 
         label = tf.cast(features['label'], tf.int32)
 
-        return image, label
-    # TODO Pass all of this via on params
-    # image_files = ['gs://iowa_bucket/cifar10/data/train.tfrecords']
+        random_noise = tf.random_normal([batch_size, NOISE_DIMS])
+        features = {
+            'real_images': image,
+            'random_noise': random_noise}
+
+        return features, label
+
     image_files = [os.path.join(FLAGS.data_dir, 'train.tfrecords')]
     tf.logging.info(image_files)
     dataset = tf.data.TFRecordDataset([image_files])
@@ -135,17 +139,10 @@ def input_fn(params):
         dataset = dataset.apply(tf.contrib.data.batch_and_drop_remainder(batch_size))
     else:
         dataset = dataset.batch(batch_size, drop_remainder=True)
-    dataset = dataset.prefetch(2)
-    # return dataset
-    images, labels = dataset.make_initializable_iterator().get_next()
-    images, labels = dataset.make_one_shot_iterator().get_next()
-    # TODO why initializable vs one_shot
+    # Not sure why we use one_shot and not initializable iterator (for instance)
+    features, labels = dataset.make_one_shot_iterator().get_next()
 
-    random_noise = tf.random_normal([batch_size, NOISE_DIMS])
 
-    features = {
-        'real_images': images,
-        'random_noise': random_noise}
 
     return features, labels
 
@@ -153,8 +150,6 @@ def input_fn(params):
 def generate_input_fn(is_training):
   """Creates input_fn depending on whether the code is training or not."""
   return input_fn
-
-leaky_relu = lambda net: tf.nn.leaky_relu(net, alpha=0.01)
 
 
 def noise_input_fn(params):
@@ -354,7 +349,7 @@ while current_step < FLAGS.train_steps:
     if FLAGS.eval_loss:
         # Evaluate loss on test set
         metrics = est.evaluate(input_fn=generate_input_fn(False),
-                                steps=NUM_EVAL_IMAGES // FLAGS.batch_size)
+                                steps=_NUM_EVAL_IMAGES // FLAGS.batch_size)
         tf.logging.info('Finished evaluating')
         tf.logging.info(metrics)
 

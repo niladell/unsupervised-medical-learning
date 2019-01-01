@@ -38,6 +38,7 @@ framework = tf.contrib.framework
 # from core import DataManager
 # from model import ExampleModel
 # from datamanager import CIFAR10
+import cifar_model as model
 
 SAMPLE_NUM = 50000
 
@@ -143,8 +144,8 @@ def input_fn(params):
     random_noise = tf.random_normal([batch_size, NOISE_DIMS])
 
     features = {
-        'images': images,
-        'noise': random_noise}
+        'real_images': images,
+        'random_noise': random_noise}
 
     return features, labels
 
@@ -174,205 +175,104 @@ def noise_input_fn(params):
   noise_dataset = tf.data.Dataset.from_tensors(tf.constant(
       np.random.randn(params['batch_size'], FLAGS.noise_dim), dtype=tf.float32))
   noise = noise_dataset.make_one_shot_iterator().get_next()
-  return {'noise': noise}, None
+  return {'random_noise': noise}, None
 
-def _batch_norm(x, is_training):
-    # TODO For now using default params from DCGAN
-    return tf.layers.batch_normalization(
-        x, momentum=0.9, epsilon=1e-5, training=is_training)
-
-def generator_fn(noise, weight_decay=2.5e-5, is_training=True):
-    """Simple generator to produce CIFAR images.
-
-    Args:
-        noise: A single Tensor representing noise.
-        weight_decay: The value of the l2 weight decay.
-        is_training: If `True`, batch norm uses batch statistics. If `False`, batch
-            norm uses the exponential moving average collected from population
-            statistics.
-
-    Returns:
-        A generated image in the range [-1, 1].
-    """
-    with tf.variable_scope('Generator', reuse=tf.AUTO_REUSE):
-        net = layers.fully_connected(noise, 4096)
-        net = tf.nn.relu(_batch_norm(net, is_training))
-        net = tf.reshape(net, [-1, 4, 4, 256])
-        net = layers.conv2d_transpose(net, 128, [5, 5], stride=2)
-        net = tf.nn.relu(_batch_norm(net, is_training))
-
-        net = layers.conv2d_transpose(net, 64, [4, 4], stride=2)
-        net = tf.nn.relu(_batch_norm(net, is_training))
-
-        net = layers.conv2d_transpose(net, CHANNELS, [4, 4], stride=2)
-        net = tf.nn.relu(_batch_norm(net, is_training))
-
-        return net
-        # TODO For now using a "simpler" net + not using frameowkr
-        # with framework.arg_scope(
-        #     [layers.fully_connected, layers.conv2d_transpose],
-        #     activation_fn=tf.nn.relu, normalizer_fn=layers.batch_norm,
-        #     weights_regularizer=layers.l2_regularizer(weight_decay)),\
-        # framework.arg_scope([layers.batch_norm], is_training=is_training,
-        #                     zero_debias_moving_mean=True):
-        #     logging.info(noise)
-
-        #     net = layers.fully_connected(noise, 1024)
-        #     net = tf.nn.relu(_batch_norm(netIdk why the following "framework" thing is needed. Needa check, is_training))
-        #     logging.info(net)
-
-        #     net = layers.fully_connected(net, 7 * 7 * 256)
-        #     net = tf.nn.relu(_batch_norm(net, is_training))
-        #     logging.info(net)
-
-        #     net = tf.reshape(net, [-1, 7, 7, 256])
-        #     logging.info(net)
-
-        #     net = layers.conv2d_transpose(net, 64, [4, 4], stride=2)
-        #     net = tf.nn.relu(_batch_norm(net, is_training))
-        #     logging.info(net)
-
-        #     net = layers.conv2d_transpose(net, 32, [5, 5], stride=2, padding='VALID')
-        #     net = tf.nn.relu(_batch_norm(net, is_training))
-        #     logging.info(net)
-
-        #     # TODO CHECK A PROPER WAY OF DOING THIS
-        #     net = layers.conv2d_transpose(net, 32, [2, 2], stride=1, padding='VALID')
-        #     net = tf.nn.relu(_batch_norm(net, is_training))
-        #     logging.info(net)
-
-        #     net = layers.conv2d(net, CHANNELS, 4, normalizer_fn=None, activation_fn=tf.tanh)
-        #     net = tf.tanh(net)
-        #     logging.info(net)
-        # return net
-
-
-def discriminator_fn(img, weight_decay=2.5e-5, is_training=True):
-    """Discriminator network on MNIST digits.
-
-    Args:
-        img: Real or generated MNIST digits. Should be in the range [-1, 1].
-        weight_decay: The L2 weight decay.
-        is_training: If `True`, batch norm uses batch statistics. If `False`, batch
-            norm uses the exponential moving average collected from population
-            statistics.
-
-    Returns:
-        Logits for the probability that the image is real.
-    """
-    with tf.variable_scope('Discriminator', reuse=tf.AUTO_REUSE):
-        # TODO For not using framework
-        # with framework.arg_scope(
-        #     [layers.conv2d, layers.fully_connected],
-        #     activation_fn=leaky_relu, normalizer_fn=None,
-        #     weights_regularizer=layers.l2_regularizer(weight_decay),
-        #     biases_regularizer=layers.l2_regularizer(weight_decay)):
-        net = layers.conv2d(img, 64, [5, 5], stride=2)
-        net = tf.nn.relu(_batch_norm(net, is_training))
-
-        net = layers.conv2d(net, 128, [5, 5], stride=2)
-        net = tf.nn.relu(_batch_norm(net, is_training))
-
-        net = layers.conv2d(net, 256, [5, 5], stride=2)
-        net = tf.nn.relu(_batch_norm(net, is_training))
-
-        net = tf.reshape(net, [-1, 4 * 4 * 256])
-        net = layers.fully_connected(net, 1)
-        return net
 
 def model_fn(features, labels, mode, params):
+  """Constructs DCGAN from individual generator and discriminator networks."""
+  del labels    # Unconditional GAN does not use labels
 
-    # del features
+  if mode == tf.estimator.ModeKeys.PREDICT:
+    ###########
+    # PREDICT #
+    ###########
+    # Pass only noise to PREDICT mode
+    random_noise = features['random_noise']
+    predictions = {
+        'generated_images': model.generator(random_noise, is_training=False)
+    }
 
-    if mode == tf.estimator.ModeKeys.PREDICT:
-        noise = features['noise']
-        predictions = {
-            'generated_images': generator_fn(noise, is_training=False)
-        }
-        return tpu.TPUEstimatorSpec(mode=mode, predictions=predictions)
+    return tf.contrib.tpu.TPUEstimatorSpec(mode=mode, predictions=predictions)
 
-    batch_size = params['batch_size']
-    images = features['images']
-    noise = features['noise']
+  # Use params['batch_size'] for the batch size inside model_fn
+  batch_size = params['batch_size']   # pylint: disable=unused-variable
+  real_images = features['real_images']
+  random_noise = features['random_noise']
 
-    is_training = (mode == tf.estimator.ModeKeys.TRAIN)
+  is_training = (mode == tf.estimator.ModeKeys.TRAIN)
+  generated_images = model.generator(random_noise,
+                                     is_training=is_training)
 
-    # Generate images
-    g_images = generator_fn(noise=noise, is_training=is_training)
+  # Get logits from discriminator
+  d_on_data_logits = tf.squeeze(model.discriminator(real_images))
+  d_on_g_logits = tf.squeeze(model.discriminator(generated_images))
 
-    # Pass on discriminator
-    d_real = discriminator_fn(images, is_training=is_training)
-    d_fake = discriminator_fn(g_images, is_training=is_training)
+  # Calculate discriminator loss
+  d_loss_on_data = tf.nn.sigmoid_cross_entropy_with_logits(
+      labels=tf.ones_like(d_on_data_logits),
+      logits=d_on_data_logits)
+  d_loss_on_gen = tf.nn.sigmoid_cross_entropy_with_logits(
+      labels=tf.zeros_like(d_on_g_logits),
+      logits=d_on_g_logits)
 
-    # Compute discriminator loss
-    loss_real = tf.nn.sigmoid_cross_entropy_with_logits(
-        labels = tf.ones_like(d_real),
-        logits = d_real
-        )
-    loss_fake = tf.nn.sigmoid_cross_entropy_with_logits(
-        labels = tf.zeros_like(d_fake),
-        logits = d_fake
-        )
+  d_loss = d_loss_on_data + d_loss_on_gen
 
-    d_loss = loss_real + loss_fake
+  # Calculate generator loss
+  g_loss = tf.nn.sigmoid_cross_entropy_with_logits(
+      labels=tf.ones_like(d_on_g_logits),
+      logits=d_on_g_logits)
 
-    # Compute generator loss
-    g_loss = tf.nn.sigmoid_cross_entropy_with_logits(
-        labels = tf.ones_like(d_fake),
-        logits = d_fake
-    )
+  if mode == tf.estimator.ModeKeys.TRAIN:
+    #########
+    # TRAIN #
+    #########
+    d_loss = tf.reduce_mean(d_loss)
+    g_loss = tf.reduce_mean(g_loss)
+    d_optimizer = tf.train.AdamOptimizer(
+        learning_rate=FLAGS.learning_rate, beta1=0.5)
+    g_optimizer = tf.train.AdamOptimizer(
+        learning_rate=FLAGS.learning_rate, beta1=0.5)
 
-    if mode == tf.estimator.ModeKeys.TRAIN:
-        d_loss = tf.reduce_mean(d_loss)
-        d_optimizer = tf.train.AdamOptimizer(
-            learning_rate=FLAGS.learning_rate, beta1=0.5)
-        g_loss = tf.reduce_mean(g_loss)
-        g_optimizer = tf.train.AdamOptimizer(
-            learning_rate=FLAGS.learning_rate, beta1=0.5)
+    if FLAGS.use_tpu:
+      d_optimizer = tf.contrib.tpu.CrossShardOptimizer(d_optimizer)
+      g_optimizer = tf.contrib.tpu.CrossShardOptimizer(g_optimizer)
 
-        tf.logging.debug('GLOBAL VARIABLES: \nAll: %s\nDiscr: %s',
-                    tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
-                                            scope='Discriminator'),
-                    tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
-                                            scope='Discriminator'))
-        if FLAGS.use_tpu:
-            d_optimizer = tf.contrib.tpu.CrossShardOptimizer(d_optimizer)
-            g_optimizer = tf.contrib.tpu.CrossShardOptimizer(g_optimizer)
+    with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
+      d_step = d_optimizer.minimize(
+          d_loss,
+          var_list=tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
+                                     scope='Discriminator'))
+      g_step = g_optimizer.minimize(
+          g_loss,
+          var_list=tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
+                                     scope='Generator'))
 
-        with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
-            d_step = d_optimizer.minimize(
-                d_loss,
-                var_list=tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
-                                            scope='Discriminator'))
-            g_step = g_optimizer.minimize(
-                g_loss,
-                var_list=tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
-                                            scope='Generator'))
+      increment_step = tf.assign_add(tf.train.get_or_create_global_step(), 1)
+      joint_op = tf.group([d_step, g_step, increment_step])
 
-        increment_step = tf.assign_add(tf.train.get_or_create_global_step(), 1)
-        joint_op = tf.group([d_step, g_step, increment_step])
+      return tf.contrib.tpu.TPUEstimatorSpec(
+          mode=mode,
+          loss=g_loss,
+          train_op=joint_op)
 
-        return tf.contrib.tpu.TPUEstimatorSpec(
-            mode=mode,
-            loss=g_loss,
-            train_op=joint_op)
+  elif mode == tf.estimator.ModeKeys.EVAL:
+    ########
+    # EVAL #
+    ########
+    def _eval_metric_fn(d_loss, g_loss):
+      # When using TPUs, this function is run on a different machine than the
+      # rest of the model_fn and should not capture any Tensors defined there
+      return {
+          'discriminator_loss': tf.metrics.mean(d_loss),
+          'generator_loss': tf.metrics.mean(g_loss)}
 
+    return tf.contrib.tpu.TPUEstimatorSpec(
+        mode=mode,
+        loss=tf.reduce_mean(g_loss),
+        eval_metrics=(_eval_metric_fn, [d_loss, g_loss]))
 
-    elif mode == tf.estimator.ModeKeys.EVAL:
-        def _eval_metric_fn(d_loss, g_loss):
-            # When using TPUs, this function is run on a different machine than the
-            # rest of the model_fn and should not capture any Tensors defined there
-            return {
-                'discriminator_loss': tf.metrics.mean(d_loss),
-                'generator_loss': tf.metrics.mean(g_loss)}
-
-        return tf.contrib.tpu.TPUEstimatorSpec(
-            mode=mode,
-            loss=tf.reduce_mean(g_loss),
-            eval_metrics=(_eval_metric_fn, [d_loss, g_loss]))
-
-    # Should never reach here
-    raise ValueError('Invalid mode provided to model_fn')
+  # Should never reach here
+  raise ValueError('Invalid mode provided to model_fn')
 
 
 logging.info('Start')
@@ -417,7 +317,7 @@ def save_samples_from_data():
     # Get some sample images
     # CPU-based estimator used for PREDICT (generating images)
     data_sampler = tf.contrib.tpu.TPUEstimator(
-        model_fn=lambda features, labels, mode, params: tpu.TPUEstimatorSpec(mode=mode, predictions=features['images']),
+        model_fn=lambda features, labels, mode, params: tpu.TPUEstimatorSpec(mode=mode, predictions=features['real_images']),
         use_tpu=False,
         config=config,
         predict_batch_size=_NUM_VIZ_IMAGES)

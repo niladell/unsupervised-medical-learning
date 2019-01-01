@@ -19,7 +19,12 @@ from PIL import Image
 
 
 import tensorflow as tf
-from tensorflow.data import Dataset
+USE_ALTERNATIVE = False
+try:
+  from tensorflow.data import Dataset
+except:
+  Dataset = tf.data.Dataset
+  USE_ALTERNATIVE = True
 from tensorflow.contrib import tpu
 from tensorflow.contrib.cluster_resolver import TPUClusterResolver #pylint: disable=E0611
 from tensorflow.python.estimator import estimator
@@ -125,7 +130,10 @@ def input_fn(params):
     dataset = tf.data.TFRecordDataset([image_files])
     dataset = dataset.map(parser, num_parallel_calls=batch_size)
     dataset = dataset.prefetch(4 * batch_size).cache().repeat()
-    dataset = dataset.batch(batch_size, drop_remainder=True)
+    if USE_ALTERNATIVE:
+        dataset = dataset.apply(tf.contrib.data.batch_and_drop_remainder(batch_size))
+    else:
+        dataset = dataset.batch(batch_size, drop_remainder=True)
     dataset = dataset.prefetch(2)
     # return dataset
     images, labels = dataset.make_initializable_iterator().get_next()
@@ -367,13 +375,13 @@ def model_fn(features, labels, mode, params):
     raise ValueError('Invalid mode provided to model_fn')
 
 
-
 logging.info('Start')
-
-tpu_cluster_resolver = tf.contrib.cluster_resolver.TPUClusterResolver(
-    FLAGS.tpu,
-    zone=FLAGS.tpu_zone,
-    project=FLAGS.gcp_project)
+tpu_cluster_resolver = None
+if FLAGS.use_tpu:
+    tpu_cluster_resolver = tf.contrib.cluster_resolver.TPUClusterResolver(
+        FLAGS.tpu,
+        zone=FLAGS.tpu_zone,
+        project=FLAGS.gcp_project)
 
 config = tpu.RunConfig(
     cluster=tpu_cluster_resolver,

@@ -1,29 +1,77 @@
-from absl import flags
-from absl import logging
-logging.set_verbosity(logging.INFO)
+"""Prototype run file
 
+Example run command:
+python src/run_tpu.py --model_dir=gs://[BUCKET_NAME]/cifar10/outputs --data_dir=gs://[BUCKET_NAME]/cifar10/data  --tpu=[TPU_NAME]
+"""
+
+import sys
+import os
+
+from absl import flags
 import tensorflow as tf
 
-from core import DataManager
-from model import ExampleModel
-from datamanager import CIFAR10
+tf.logging.set_verbosity(tf.logging.INFO)
 
-# TODO This has to be externalized -> parse args
-# FLAGS --> NOT IN USE FOR NOW
+FLAGS = flags.FLAGS
 
-batch_size = 32 # TESTING --> Not using the FLAGS yet
-step_num = 100 # Number of steps (total number of samples used = batch_size * step)
 
-with tf.Session() as session:
-    training_dataset = CIFAR10(tf_session=session, file_name='data_batch_')  # Data batches from 1 to 5
-    validation_dataset = CIFAR10(tf_session=session, file_name='test_batch')
+# Cloud TPU Cluster Resolvers
+flags.DEFINE_boolean('use_tpu', True, 'Use TPU for training')
+flags.DEFINE_string(
+    'tpu', default='node-1',
+    help='The Cloud TPU to use for training. This should be either the name '
+    'used when creating the Cloud TPU, or a grpc://ip.address.of.tpu:8470 url.')
+flags.DEFINE_string(
+    'gcp_project', default=None,
+    help='Project name for the Cloud TPU-enabled project. If not specified, we '
+    'will attempt to automatically detect the GCE project from metadata.')
+flags.DEFINE_string(
+    'tpu_zone', default='us-central1-f',
+    help='GCE zone where the Cloud TPU is located in. If not specified, we '
+    'will attempt to automatically detect the GCE project from metadata.')
+flags.DEFINE_integer('num_shards', None, 'Number of TPU chips')
 
-    model = ExampleModel(tf_session=session,
-                         learning_rate=0.001,
-                         training_dataset=training_dataset,
-                         validation_dataset=validation_dataset
-                        )
+# Model specific paramenters
+flags.DEFINE_string('model_dir', '', 'Output model directory')
+flags.DEFINE_string('data_dir', '', 'Dataset directory')
+flags.DEFINE_integer('noise_dim', 64,
+                     'Number of dimensions for the noise vector')
+flags.DEFINE_integer('batch_size', 1024,
+                     'Batch size for both generator and discriminator')
+flags.DEFINE_integer('train_steps', 50000, 'Number of training steps')
+flags.DEFINE_integer('train_steps_per_eval', 5000,
+                     'Steps per eval and image generation')
+flags.DEFINE_integer('num_eval_images', 1024,
+                     'Number of images on the evaluation')
+flags.DEFINE_integer('num_viz_images', 100,
+                     'Number of images generated on each PREDICT')
+flags.DEFINE_integer('iterations_per_loop', 200,
+                     'Steps per interior TPU loop. Should be less than'
+                     ' --train_steps_per_eval')
+flags.DEFINE_float('learning_rate', 0.0002, 'LR for both D and G')
+flags.DEFINE_boolean('eval_loss', True,
+                     'Evaluate discriminator and generator loss during eval')
+
+
+if __name__ == "__main__":
+    FLAGS(sys.argv)
+
+    from model import ExampleModel
+    from datamanager.CIFAR_input_functions import generate_input_fn
+
+    model = ExampleModel(model_dir=FLAGS.model_dir, data_dir=FLAGS.data_dir,
+                # Model parameters
+                learning_rate=FLAGS.learning_rate, batch_size=FLAGS.batch_size, noise_dim=FLAGS.noise_dim,
+                # Training and prediction settings
+                iterations_per_loop=FLAGS.iterations_per_loop, num_viz_images=FLAGS.num_viz_images,
+                # Evaluation settings
+                eval_loss=FLAGS.eval_loss, train_steps_per_eval=FLAGS.train_steps_per_eval,
+                num_eval_images=FLAGS.num_eval_images,
+                # TPU settings
+                use_tpu=FLAGS.use_tpu, tpu=FLAGS.tpu, tpu_zone=FLAGS.tpu_zone,
+                gcp_project=FLAGS.gcp_project, num_shards=FLAGS.num_shards)
 
     model.build_model()
-
-    model.train(10001)
+    model.save_samples_from_data(generate_input_fn)
+    model.train(FLAGS.train_steps, generate_input_fn)
+    tf.logging.info('Finished!')

@@ -1,4 +1,4 @@
-"""Convert CIFAR-like (plan to be expanded) datasets into TFRecod files."""
+"""DEPRACATED: Convert CIFAR-like (plan to be expanded) datasets into TFRecod files."""
 
 import tensorflow as tf
 import numpy as np

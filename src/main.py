@@ -5,12 +5,18 @@ python src/run_tpu.py --model_dir=gs://[BUCKET_NAME]/cifar10/outputs --data_dir=
 """
 
 import sys
-import os
+import logging
 
+logging.basicConfig(level=logging.INFO,
+                    format='%(filename)s: '
+                            '%(levelname)s: '
+                            '%(funcName)s(): '
+                            '%(lineno)d:\t'
+                            '%(message)s')
 from absl import flags
 import tensorflow as tf
-
-tf.logging.set_verbosity(tf.logging.INFO)
+# TODO ¿move all to normal logging module?
+# tf.logging.set_verbosity(tf.logging.INFO)
 
 FLAGS = flags.FLAGS
 
@@ -34,6 +40,7 @@ flags.DEFINE_integer('num_shards', None, 'Number of TPU chips')
 # Model specific paramenters
 flags.DEFINE_string('model_dir', '', 'Output model directory')
 flags.DEFINE_string('data_dir', '', 'Dataset directory')
+flags.DEFINE_string('dataset', 'CIFAR10', 'Which dataset to use')
 flags.DEFINE_integer('noise_dim', 64,
                      'Number of dimensions for the noise vector')
 flags.DEFINE_integer('batch_size', 1024,
@@ -56,10 +63,13 @@ flags.DEFINE_boolean('eval_loss', True,
 if __name__ == "__main__":
     FLAGS(sys.argv)
 
-    from model import ExampleModel
-    from datamanager.CIFAR_input_functions import generate_input_fn
+    from model import Model
+    if FLAGS.dataset == 'CIFAR10':
+        from datamanager.CIFAR_input_functions import generate_input_fn
+    elif FLAGS.dataset == 'celebA':
+        from datamanager.celebA_input_functions import generate_input_fn
 
-    model = ExampleModel(model_dir=FLAGS.model_dir, data_dir=FLAGS.data_dir,
+    model = Model(model_dir=FLAGS.model_dir, data_dir=FLAGS.data_dir, dataset=FLAGS.dataset,
                 # Model parameters
                 learning_rate=FLAGS.learning_rate, batch_size=FLAGS.batch_size, noise_dim=FLAGS.noise_dim,
                 # Training and prediction settings
@@ -71,7 +81,7 @@ if __name__ == "__main__":
                 use_tpu=FLAGS.use_tpu, tpu=FLAGS.tpu, tpu_zone=FLAGS.tpu_zone,
                 gcp_project=FLAGS.gcp_project, num_shards=FLAGS.num_shards)
 
-    model.build_model()
     model.save_samples_from_data(generate_input_fn)
+    model.build_model()
     model.train(FLAGS.train_steps, generate_input_fn)
     tf.logging.info('Finished!')

@@ -7,38 +7,7 @@ Adversarial Networks" by A. Radford et. al.
 
 import tensorflow as tf
 from core import CoreModelTPU
-
-def _leaky_relu(x):
-  return tf.nn.leaky_relu(x, alpha=0.2)
-
-
-def _batch_norm(x, is_training, name):
-  return tf.layers.batch_normalization(
-      x, momentum=0.9, epsilon=1e-5, training=is_training, name=name)
-
-
-def _dense(x, channels, name):
-  return tf.layers.dense(
-      x, channels,
-      kernel_initializer=tf.truncated_normal_initializer(stddev=0.02),
-      name=name)
-
-
-def _conv2d(x, filters, kernel_size, stride, name):
-  return tf.layers.conv2d(
-      x, filters, [kernel_size, kernel_size],
-      strides=[stride, stride], padding='same',
-      kernel_initializer=tf.truncated_normal_initializer(stddev=0.02),
-      name=name)
-
-
-def _deconv2d(x, filters, kernel_size, stride, name):
-  return tf.layers.conv2d_transpose(
-      x, filters, [kernel_size, kernel_size],
-      strides=[stride, stride], padding='same',
-      kernel_initializer=tf.truncated_normal_initializer(stddev=0.02),
-      name=name)
-
+from .vanilla_ops import batch_norm, block, _leaky_relu, _conv2d
 
 class Model(CoreModelTPU):
     """
@@ -58,7 +27,7 @@ class Model(CoreModelTPU):
 
                 # 32 x 32
                 x = _conv2d(x, 64, 5, 2, name='d_conv1')
-                x = _leaky_relu(_batch_norm(x, is_training, name='d_bn1'))
+                x = _leaky_relu(batch_norm(x, is_training, name='d_bn1'))
                 tf.logging.debug(x)
 
             else:  # CIFAR10
@@ -69,19 +38,19 @@ class Model(CoreModelTPU):
 
             # 16 x 16
             x = _conv2d(x, 128, 5, 2, name='d_conv2')
-            x = _leaky_relu(_batch_norm(x, is_training, name='d_bn2'))
+            x = _leaky_relu(batch_norm(x, is_training, name='d_bn2'))
             tf.logging.debug(x)
 
             # 8 x 8
             x = _conv2d(x, 256, 5, 2, name='d_conv3')
-            x = _leaky_relu(_batch_norm(x, is_training, name='d_bn3'))
+            x = _leaky_relu(batch_norm(x, is_training, name='d_bn3'))
             tf.logging.debug(x)
 
             # 4 x 4
             x = tf.reshape(x, [-1, 4 * 4 * 256])
             tf.logging.debug(x)
 
-            x = _dense(x, 1, name='d_fc_4')
+            x = tf.layers.Dense(1, name='d_fc_4')(x)
             tf.logging.debug(x)
 
             return x
@@ -91,35 +60,29 @@ class Model(CoreModelTPU):
             tf.logging.debug('Generator %s', self.dataset)
             tf.logging.debug('G -- Input %s', x)
 
-            x = _dense(x, 4096, name='g_fc1')
-            x = tf.nn.relu(_batch_norm(x, is_training, name='g_bn1'))
+            gf_dim = 64  #   Still not sure of this:
+                         # Form carpedm20 "Dimension of gen filters in first conv layer"
+            x = tf.layers.Dense(units=gf_dim * 8 * 4 * 4 )(x)
             tf.logging.debug(x)
-            x = tf.reshape(x, [-1, 4, 4, 256])
+            x = tf.reshape(x, [-1, 4, 4, gf_dim * 8])
             tf.logging.debug(x)
-            # 4 x 4
 
-            x = _deconv2d(x, 128, 5, 2, name='g_dconv2')
-            x = tf.nn.relu(_batch_norm(x, is_training, name='g_bn2'))
+            # TODO for now using 64x64, wee need to make this dynamic for the different sizes: {28?, 32, 64, 128?, 515}
+            # x = block(x, gf_dim * 16, is_training, 'g_block1')  # 8 * 8
+            # tf.logging.debug(x)
+            x = block(x, gf_dim * 8, is_training, 'g_block2')  # 16 * 16
             tf.logging.debug(x)
-            # 8 x 8
-
-            x = _deconv2d(x, 64, 4, 2, name='g_dconv3')
-            x = tf.nn.relu(_batch_norm(x, is_training, name='g_bn3'))
+            x = block(x, gf_dim * 4, is_training, 'g_block3')  # 32 * 32
             tf.logging.debug(x)
-            # 16 x 16
+            x = block(x, gf_dim * 2, is_training, 'g_block4')  # 64 * 64
+            tf.logging.debug(x)
+            x = block(x, gf_dim * 1, is_training, 'g_block5')  # 128 * 128
+            tf.logging.debug(x)
 
-            if self.dataset == 'celebA':
-                x = _deconv2d(x, 32, 4, 2, name='g_dconv4')
-                x = tf.nn.relu(_batch_norm(x, is_training, name='g_bn4'))
-                tf.logging.debug(x)
-                # 32 x 32
+            x = tf.nn.relu(batch_norm(x, is_training, 'bn'))
+            x = tf.layers.Conv2D(filters=3, kernel_size=3, padding='SAME', name='conv_last')(x)
+            tf.logging.debug(x)
 
-                x = _deconv2d(x, 3, 4, 2, name='g_dconv5')
-                tf.logging.debug(x)
-                # 64 x 64
-            else:
-                x = _deconv2d(x, 3, 4, 2, name='g_dconv4')
-                tf.logging.debug(x)
             x = tf.tanh(x)
             tf.logging.debug(x)
 

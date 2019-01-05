@@ -1,8 +1,6 @@
 import os
 import json
 
-# for i,j,y in os.walk('Backup PEN/Goethe Institut'):
-#     print(j)
 # path = '/home/pereira_inez_gmail_com/bucket_tmp/CT_head_trauma_unzipped'
 path = os.getcwd()
 

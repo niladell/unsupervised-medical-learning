@@ -1,4 +1,5 @@
 '''
+CQ500 dataset exploration.
 Script to extract the folder names from all the subjects of the CQ500 dataset.
 This script return two json files: one with the subfolder names and their associated absolute count and another one
 with the subfolders and the subjects in which they are present.

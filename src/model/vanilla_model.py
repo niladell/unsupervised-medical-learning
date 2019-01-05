@@ -7,7 +7,7 @@ Adversarial Networks" by A. Radford et. al.
 
 import tensorflow as tf
 from core import CoreModelTPU
-from .vanilla_ops import batch_norm, block, _leaky_relu, _conv2d
+from .vanilla_ops import batch_norm, g_block, d_block, _leaky_relu, _conv2d
 
 class Model(CoreModelTPU):
     """
@@ -19,48 +19,43 @@ class Model(CoreModelTPU):
             tf.logging.debug('Discriminator %s', self.dataset)
             tf.logging.debug('D -- Input %s', x)
 
+            df_dim = 32 # See gf_dim
+
             if self.dataset == 'celebA':
                 # 64 x 64
-                x = _conv2d(x, 32, 5, 2, name='d_conv0')
-                x = _leaky_relu(x)
-                tf.logging.debug(x)
-
-                # 32 x 32
-                x = _conv2d(x, 64, 5, 2, name='d_conv1')
-                x = _leaky_relu(batch_norm(x, is_training, name='d_bn1'))
+                x = d_block(x, filters=df_dim, name='d_block1')
                 tf.logging.debug(x)
 
             else:  # CIFAR10
                 # 32 x 32
-                x = _conv2d(x, 64, 5, 2, name='d_conv1')
-                x = _leaky_relu(x)
-                tf.logging.debug(x)
+                pass #?
+            # 32 x 32
+            x = d_block(x, filters=df_dim * 2, name='d_block2')
+            tf.logging.debug(x)
 
             # 16 x 16
-            x = _conv2d(x, 128, 5, 2, name='d_conv2')
-            x = _leaky_relu(batch_norm(x, is_training, name='d_bn2'))
+            x = d_block(x, filters=df_dim * 4, name='d_block3')
             tf.logging.debug(x)
 
             # 8 x 8
-            x = _conv2d(x, 256, 5, 2, name='d_conv3')
-            x = _leaky_relu(batch_norm(x, is_training, name='d_bn3'))
+            x = d_block(x, filters=df_dim * 8, name='d_block4')
             tf.logging.debug(x)
 
             # 4 x 4
-            x = tf.reshape(x, [-1, 4 * 4 * 256])
+            x = tf.reshape(x, [-1, 4 * 4 * 8 * df_dim])
             tf.logging.debug(x)
 
-            x = tf.layers.Dense(1, name='d_fc_4')(x)
-            tf.logging.debug(x)
+            logit = tf.layers.Dense(1, name='d_fc')(x)
+            tf.logging.debug(logit)
 
-            return x
+            return logit
 
     def generator(self, x, is_training=True, scope='Generator'):
         with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
             tf.logging.debug('Generator %s', self.dataset)
             tf.logging.debug('G -- Input %s', x)
 
-            gf_dim = 64  #   Still not sure of this:
+            gf_dim = 32  #   Still not sure of this:
                          # Form carpedm20 "Dimension of gen filters in first conv layer"
             x = tf.layers.Dense(units=gf_dim * 8 * 4 * 4 )(x)
             tf.logging.debug(x)
@@ -68,15 +63,15 @@ class Model(CoreModelTPU):
             tf.logging.debug(x)
 
             # TODO for now using 64x64, wee need to make this dynamic for the different sizes: {28?, 32, 64, 128?, 515}
-            # x = block(x, gf_dim * 16, is_training, 'g_block1')  # 8 * 8
+            # x = g_block(x, gf_dim * 16, is_training, 'g_block1')  # 8 * 8
             # tf.logging.debug(x)
-            x = block(x, gf_dim * 8, is_training, 'g_block2')  # 16 * 16
+            x = g_block(x, gf_dim * 8, is_training, 'g_block2')  # 16 * 16
             tf.logging.debug(x)
-            x = block(x, gf_dim * 4, is_training, 'g_block3')  # 32 * 32
+            x = g_block(x, gf_dim * 4, is_training, 'g_block3')  # 32 * 32
             tf.logging.debug(x)
-            x = block(x, gf_dim * 2, is_training, 'g_block4')  # 64 * 64
+            x = g_block(x, gf_dim * 2, is_training, 'g_block4')  # 64 * 64
             tf.logging.debug(x)
-            x = block(x, gf_dim * 1, is_training, 'g_block5')  # 128 * 128
+            x = g_block(x, gf_dim * 1, is_training, 'g_block5')  # 128 * 128
             tf.logging.debug(x)
 
             x = tf.nn.relu(batch_norm(x, is_training, 'bn'))

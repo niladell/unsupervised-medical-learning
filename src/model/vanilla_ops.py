@@ -1,5 +1,5 @@
 import tensorflow as tf
-from tensorflow.layers import Conv2D, BatchNormalization
+from tensorflow.layers import Conv2D, BatchNormalization, AveragePooling2D
 
 
 def _leaky_relu(x):
@@ -40,7 +40,7 @@ def upsample(x, n):
     return x
   return tf.batch_to_space(tf.tile(x, [n**2, 1, 1, 1]), [[0, 0], [0, 0]], n)
 
-def block(x, filters, is_training, name):
+def g_block(x, filters, is_training, name):
   """Residual Block
 
   For a fast overview see Big GAN paper. Based on self-attention GAN code.
@@ -55,5 +55,19 @@ def block(x, filters, is_training, name):
 
     x0 = upsample(x0, 2)
     x0 = Conv2D(filters=filters, kernel_size=1, padding='SAME', name='conv3')(x0)
+
+    return x0 + x
+
+def d_block(x, filters, name):
+  with tf.variable_scope(name):
+    x0 = x
+    x = tf.nn.relu(x)
+    x = Conv2D(filters, kernel_size=3, padding='SAME', name='conv1')(x)
+    x = tf.nn.relu(x)
+    x = Conv2D(filters, kernel_size=3, padding='SAME', name='conv2')(x)
+    x = AveragePooling2D(pool_size=2, strides=2, padding='VALID', name='avg1')(x)
+
+    x0 = Conv2D(filters, kernel_size=3, padding='SAME', name='conv3')(x0)
+    x0 = AveragePooling2D(pool_size=2, strides=2, padding='VALID', name='avg1')(x0)
 
     return x0 + x

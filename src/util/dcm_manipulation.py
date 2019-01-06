@@ -26,6 +26,8 @@ import pydicom
 import matplotlib.pyplot as plt
 import re
 
+path2 = '/Users/ines/Desktop/pca experiments'
+os.chdir(path2)
 
 def _bytes_feature(value):
     return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
@@ -41,37 +43,45 @@ def _float_feature(value):
 
 tfrecords_outfile = 'test.tfrecords'
 
-writer = tf.python_io.TFRecordWriter(tfrecords_outfile)
 
 filename = 'CT000000.dcm'
 ds = pydicom.dcmread(filename)
-img_raw = ds.PixelData
 print(ds)
 
-height = ds.pixel_array.shape[0]
-width = ds.pixel_array.shape[1]
-location = ds.get('SliceLocation', "(missing)")
-identity = ds.get('PatientID')
-identity_nr = re.findall(r'\d+$', identity)
+pixel_data = []
+for file in os.listdir(path2):
+    pattern = re.compile(r'.dcm$')
+    m = re.search(pattern, file)
+    if m is not None:
+        # writer = tf.python_io.TFRecordWriter(tfrecords_outfile)
+        ds = pydicom.dcmread(file)
+        img_raw = ds.PixelData
+        height = ds.pixel_array.shape[0]
+        width = ds.pixel_array.shape[1]
+        location = ds.get('SliceLocation', "(missing)")
+        identity = ds.get('PatientID')
+        identity_nr = re.findall(r'\d+$', identity)
 
-example = tf.train.Example(features=tf.train.Features(feature={
-    'height': _int64_feature(height),
-    'width': _int64_feature(width),
-    'image_raw': _bytes_feature(img_raw),
-    'identity_nr': _int64_feature(int(identity_nr[0])),
-    'slice_location': _float_feature(location)}))
+        example = tf.train.Example(features=tf.train.Features(feature={
+            'height': _int64_feature(height),
+            'width': _int64_feature(width),
+            'image_raw': _bytes_feature(img_raw),
+            'identity_nr': _int64_feature(int(identity_nr[0])),
+            'slice_location': _float_feature(location)}))
 
-# print(example)
-writer.write(example.SerializeToString())
+        # save pixel information to list
+        pixel_data.append(img_raw)
 
-writer.close()
+        # # print(example)
+        # writer.write(example.SerializeToString())
+        #
+        # writer.close()
 
 ##################
 # TRYING OUT PCA #
 ##################
 
-path2 = '/Users/ines/Desktop/pca experiments'
-os.chdir(path2)
+
 
 x = []
 for file in os.listdir(path2):
@@ -80,11 +90,15 @@ for file in os.listdir(path2):
 
 # tft.pca(x, output_dim=4, dtype=tf.float64)
 
-# Perform SVD
-singular_values, u, _ = tf.svd(x)
-# Create sigma matrix
-sigma = tf.diag(singular_values)
-
 tensor = tf.convert_to_tensor(example) # this also does not work
 
 tensor = tf.convert_to_tensor(img_raw) # works!
+
+tensor_pixel = tf.convert_to_tensor(pixel_data, dtype=tf.float16) # works?
+
+# Perform SVD
+singular_values, u, _ = tf.svd(tensor_pixel)
+# Create sigma matrix
+sigma = tf.diag(singular_values)
+
+

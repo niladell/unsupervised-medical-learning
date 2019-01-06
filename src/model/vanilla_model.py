@@ -158,19 +158,36 @@ class Model(CoreModelTPU):
             d_on_data_logits = tf.squeeze(self.discriminator(real_images))
             d_on_g_logits = tf.squeeze(self.discriminator(generated_images))
 
+            # Create the labels
+            true_label = tf.ones_like(d_on_data_logits)
+            fake_label = tf.zeros_like(d_on_g_logits)
+            #  We invert the labels for the generator training (ganTricks)
+            true_label_g = tf.ones_like(d_on_g_logits)
+
+            # Soften the labels (ganTricks)
+            fuzzyness = 0.2
+            if fuzzyness != 0:
+                true_label += tf.random_uniform(true_label.shape,
+                                            minval=-fuzzyness, maxval=fuzzyness)
+                fake_label += tf.random_uniform(fake_label.shape,
+                                            minval=-fuzzyness, maxval=fuzzyness)
+                true_label_g += tf.random_uniform(true_label_g.shape,
+                                            minval=-fuzzyness, maxval=fuzzyness)
+
+
             # Calculate discriminator loss
             d_loss_on_data = tf.nn.sigmoid_cross_entropy_with_logits(
-                labels=tf.ones_like(d_on_data_logits),
+                labels=true_label,
                 logits=d_on_data_logits)
             d_loss_on_gen = tf.nn.sigmoid_cross_entropy_with_logits(
-                labels=tf.zeros_like(d_on_g_logits),
+                labels=fake_label,
                 logits=d_on_g_logits)
 
             d_loss = d_loss_on_data + d_loss_on_gen
 
             # Calculate generator loss
             g_loss = tf.nn.sigmoid_cross_entropy_with_logits(
-                labels=tf.ones_like(d_on_g_logits),
+                labels=true_label_g,
                 logits=d_on_g_logits)
 
             if mode == tf.estimator.ModeKeys.TRAIN:

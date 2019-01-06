@@ -44,7 +44,11 @@ writer.write(example.SerializeToString())
 
 writer.close()
 
+
 print([ds.pixel_array.min(),ds.pixel_array.max()])
+
+#print([ds.pixel_array.min(),ds.pixel_array.max()])
+
 
 
 #plt.imshow(ds.pixel_array, cmap=plt.cm.bone)

@@ -31,6 +31,7 @@ class CoreModelTPU(object):
     def __init__(self,
                  model_dir: str,
                  data_dir: str,
+                 dataset: str,
                  learning_rate: float = 0.0002,
                  noise_dim: int = 64,
                  batch_size: int = 128,
@@ -63,7 +64,7 @@ class CoreModelTPU(object):
             gcp_project (str, optional): Defaults to None.
             num_shards (int, optional): Defaults to None.
         """
-
+        self.dataset = dataset
         self.data_dir = data_dir
         if model_dir[-1] == '/':
             model_dir = model_dir[:-1]

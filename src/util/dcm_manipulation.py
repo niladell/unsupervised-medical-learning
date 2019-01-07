@@ -3,6 +3,9 @@ import pydicom
 from pydicom.data import get_testdata_files
 import os
 import tensorflow as tf
+import pdb
+import numpy as np
+from sklearn.decomposition import PCA
 
 tf.enable_eager_execution()
 
@@ -26,7 +29,7 @@ import pydicom
 import matplotlib.pyplot as plt
 import re
 
-path2 = '/Users/ines/Desktop/pca experiments'
+path2 = '/Users/ines/Desktop/pca_experiments'
 os.chdir(path2)
 
 def _bytes_feature(value):
@@ -85,8 +88,11 @@ for file in os.listdir(path2):
 
 x = []
 for file in os.listdir(path2):
-    dcm = pydicom.dcmread(file)
-    x.append(dcm)
+    pattern = re.compile(r'.dcm$')
+    m = re.search(pattern, file)
+    if m is not None:
+        dcm = pydicom.dcmread(file)
+        x.append(dcm.pixel_array)
 
 # tft.pca(x, output_dim=4, dtype=tf.float64)
 
@@ -94,11 +100,25 @@ tensor = tf.convert_to_tensor(example) # this also does not work
 
 tensor = tf.convert_to_tensor(img_raw) # works!
 
-tensor_pixel = tf.convert_to_tensor(pixel_data, dtype=tf.float16) # works?
 
+list_tensors = []
+for data in pixel_data:
+    tensor = tf.convert_to_tensor(data) # works?
+    list_tensors.append(tensor)
+
+## With Tensorflow --> did not work
 # Perform SVD
-singular_values, u, _ = tf.svd(tensor_pixel)
+singular_values, u, _ = tf.svd(list_tensors)
 # Create sigma matrix
 sigma = tf.diag(singular_values)
 
+## With sklearn
+pixel_stuff = pixel_data[0:2]
+pca = PCA(n_components=5)
+pca.fit(pixel_stuff)
+
+x_array = np.asarray(x)
+x_reshaped = x_array.reshape(36, 512*512) # This particular reshaping is inspired by:
+# https://stackoverflow.com/questions/48003185/sklearn-dimensionality-issues-found-array-with-dim-3-estimator-expected-2
+pca.fit(x_reshaped)
 

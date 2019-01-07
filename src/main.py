@@ -1,18 +1,16 @@
 """Prototype run file
 
 Example run command:
-python src/run_tpu.py --model_dir=gs://[BUCKET_NAME]/cifar10/outputs --data_dir=gs://[BUCKET_NAME]/cifar10/data  --tpu=[TPU_NAME]
+python src/main.py --model_dir=gs://[BUCKET_NAME]/cifar10/outputs --data_dir=gs://[BUCKET_NAME]/cifar10/data  --tpu=[TPU_NAME] --dataset=[DATASET]
 """
 
 import sys
 import logging
-
-logging.basicConfig(level=logging.INFO,
-                    format='%(filename)s: '
-                            '%(levelname)s: '
-                            '%(funcName)s(): '
-                            '%(lineno)d:\t'
-                            '%(message)s')
+logging.basicConfig(format='%(filename)s: '
+                           '%(levelname)s: '
+                           '%(funcName)s(): '
+                           '%(lineno)d:\t'
+                           '%(message)s')
 from absl import flags
 import tensorflow as tf
 # TODO ¿move all to normal logging module?
@@ -43,6 +41,17 @@ flags.DEFINE_string('data_dir', '', 'Dataset directory')
 flags.DEFINE_string('dataset', 'CIFAR10', 'Which dataset to use')
 flags.DEFINE_integer('noise_dim', 64,
                      'Number of dimensions for the noise vector')
+flags.DEFINE_string('g_optimizer', 'ADAM', 'Optimizer to use for the'
+                     'generator (now supported: ADAM')
+flags.DEFINE_string('d_optimizer', 'SGD', 'Optimizer to use for the'
+                     'discriminator (now supported: SGD, ADAM')
+
+flags.DEFINE_boolean('use_encoder', False, 'Use an encoder')
+flags.DEFINE_string('encoder', 'ATTACHED', 'Type of encoder to use.'
+                    'Options are "ATTACHED" or "INDEPENDENT"')
+flags.DEFINE_string('e_optimizer', 'ADAM',  'Optimizer to use for the'
+                     'encoder (now supported: SGD, ADAM')
+
 flags.DEFINE_integer('batch_size', 1024,
                      'Batch size for both generator and discriminator')
 flags.DEFINE_integer('train_steps', 50000, 'Number of training steps')
@@ -59,9 +68,12 @@ flags.DEFINE_float('learning_rate', 0.0002, 'LR for both D and G')
 flags.DEFINE_boolean('eval_loss', True,
                      'Evaluate discriminator and generator loss during eval')
 
+flags.DEFINE_string('log_level', 'INFO', 'Logging level')
 
 if __name__ == "__main__":
     FLAGS(sys.argv)
+    log = logging.getLogger('tensorflow')
+    log.setLevel(FLAGS.log_level)
 
     from model import Model
     if FLAGS.dataset == 'CIFAR10':
@@ -72,6 +84,10 @@ if __name__ == "__main__":
     model = Model(model_dir=FLAGS.model_dir, data_dir=FLAGS.data_dir, dataset=FLAGS.dataset,
                 # Model parameters
                 learning_rate=FLAGS.learning_rate, batch_size=FLAGS.batch_size, noise_dim=FLAGS.noise_dim,
+                # Encoder
+                use_encoder=FLAGS.use_encoder, encoder=FLAGS.encoder,
+                # Optimizers
+                g_optimizer=FLAGS.g_optimizer, d_optimizer=FLAGS.d_optimizer, e_optimizer=FLAGS.e_optimizer,
                 # Training and prediction settings
                 iterations_per_loop=FLAGS.iterations_per_loop, num_viz_images=FLAGS.num_viz_images,
                 # Evaluation settings

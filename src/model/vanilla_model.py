@@ -17,13 +17,6 @@ def _batch_norm(x, is_training, name):
       x, momentum=0.9, epsilon=1e-5, training=is_training, name=name)
 
 
-def _dense(x, channels, name):
-  return tf.layers.dense(
-      x, channels,
-      kernel_initializer=tf.truncated_normal_initializer(stddev=0.02),
-      name=name)
-
-
 def _conv2d(x, filters, kernel_size, stride, name):
   return tf.layers.conv2d(
       x, filters, [kernel_size, kernel_size],
@@ -45,71 +38,83 @@ class Model(CoreModelTPU):
     Example definition of a model/network architecture using this template.
     """
 
-    def discriminator(self, x, is_training=True, scope='Discriminator'):
+    def discriminator(self, x, is_training=True, scope='Discriminator', noise_dim=None):
         with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
             tf.logging.debug('Discriminator %s', self.dataset)
             tf.logging.debug('D -- Input %s', x)
 
+            df_dim = 64  #   Still not sure of this:
+                         # Form carpedm20 "Dimension of gen filters in first conv layer"
+
             if self.dataset == 'celebA':
                 # 64 x 64
-                x = _conv2d(x, 32, 5, 2, name='d_conv0')
+                x = _conv2d(x, df_dim, 5, 2, name='d_conv0')
                 x = _leaky_relu(x)
                 tf.logging.debug(x)
 
                 # 32 x 32
-                x = _conv2d(x, 64, 5, 2, name='d_conv1')
+                x = _conv2d(x, df_dim * 2, 5, 2, name='d_conv1')
                 x = _leaky_relu(_batch_norm(x, is_training, name='d_bn1'))
                 tf.logging.debug(x)
 
             else:  # CIFAR10
                 # 32 x 32
-                x = _conv2d(x, 64, 5, 2, name='d_conv1')
+                x = _conv2d(x, df_dim * 2, 5, 2, name='d_conv1')
                 x = _leaky_relu(x)
                 tf.logging.debug(x)
 
             # 16 x 16
-            x = _conv2d(x, 128, 5, 2, name='d_conv2')
+            x = _conv2d(x, df_dim * 4, 5, 2, name='d_conv2')
             x = _leaky_relu(_batch_norm(x, is_training, name='d_bn2'))
             tf.logging.debug(x)
 
             # 8 x 8
-            x = _conv2d(x, 256, 5, 2, name='d_conv3')
+            x = _conv2d(x, df_dim * 8, 5, 2, name='d_conv3')
             x = _leaky_relu(_batch_norm(x, is_training, name='d_bn3'))
             tf.logging.debug(x)
 
             # 4 x 4
-            x = tf.reshape(x, [-1, 4 * 4 * 256])
+            x = tf.reshape(x, [-1, 4 * 4 * df_dim * 8])
             tf.logging.debug(x)
 
-            x = _dense(x, 1, name='d_fc_4')
-            tf.logging.debug(x)
+            discriminate = tf.layers.Dense(units=1, name='discriminate')(x)
+            tf.logging.debug(discriminate)
 
-            return x
+            if noise_dim:
+                encode = tf.layers.Dense(units=noise_dim, name='encode')(x)
+                tf.logging.debug(encode)
+                return discriminate, encode
+
+            return discriminate
 
     def generator(self, x, is_training=True, scope='Generator'):
         with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
             tf.logging.debug('Generator %s', self.dataset)
             tf.logging.debug('G -- Input %s', x)
 
-            x = _dense(x, 4096, name='g_fc1')
+            gf_dim = 64  #   Still not sure of this:
+                         # Form carpedm20 "Dimension of gen filters in first conv layer"
+
+
+            x = tf.layers.Dense(units=gf_dim * 8 * 4 * 4, name='g_fc1')(x)
             x = tf.nn.relu(_batch_norm(x, is_training, name='g_bn1'))
             tf.logging.debug(x)
-            x = tf.reshape(x, [-1, 4, 4, 256])
+            x = tf.reshape(x, [-1, 4, 4, gf_dim * 8])
             tf.logging.debug(x)
             # 4 x 4
 
-            x = _deconv2d(x, 128, 5, 2, name='g_dconv2')
+            x = _deconv2d(x, gf_dim * 4, 5, 2, name='g_dconv2')
             x = tf.nn.relu(_batch_norm(x, is_training, name='g_bn2'))
             tf.logging.debug(x)
             # 8 x 8
 
-            x = _deconv2d(x, 64, 4, 2, name='g_dconv3')
+            x = _deconv2d(x, gf_dim * 2, 4, 2, name='g_dconv3')
             x = tf.nn.relu(_batch_norm(x, is_training, name='g_bn3'))
             tf.logging.debug(x)
             # 16 x 16
 
             if self.dataset == 'celebA':
-                x = _deconv2d(x, 32, 4, 2, name='g_dconv4')
+                x = _deconv2d(x, gf_dim, 4, 2, name='g_dconv4')
                 x = tf.nn.relu(_batch_norm(x, is_training, name='g_bn4'))
                 tf.logging.debug(x)
                 # 32 x 32
@@ -147,42 +152,88 @@ class Model(CoreModelTPU):
 
             # Use params['batch_size'] for the batch size inside model_fn
             batch_size = params['batch_size']   # pylint: disable=unused-variable
+            noise_dim = params['noise_dim']
             real_images = features['real_images']
             random_noise = features['random_noise']
 
             is_training = (mode == tf.estimator.ModeKeys.TRAIN)
             generated_images = self.generator(random_noise,
-                                                is_training=is_training)
+                                              is_training=is_training)
 
             # Get logits from discriminator
             d_on_data_logits = tf.squeeze(self.discriminator(real_images))
-            d_on_g_logits = tf.squeeze(self.discriminator(generated_images))
+            if self.use_encoder and self.encoder == 'ATTACHED':
+                # If we use and embedded encoder we create it here
+                d_on_g_logits, g_logits_encoded =\
+                    self.discriminator(generated_images, noise_dim=noise_dim)
+                d_on_g_logits = tf.squeeze(d_on_g_logits)
+            else:
+                # Regular GAN w/o encoder
+                d_on_g_logits = tf.squeeze(self.discriminator(generated_images))
+
+            # Create the labels
+            true_label = tf.ones_like(d_on_data_logits)
+            fake_label = tf.zeros_like(d_on_g_logits)
+            #  We invert the labels for the generator training (ganTricks)
+            true_label_g = tf.ones_like(d_on_g_logits)
+
+            # Soften the labels (ganTricks)
+            fuzzyness = 0.2
+            if fuzzyness != 0:
+                true_label += tf.random_uniform(true_label.shape,
+                                            minval=-fuzzyness, maxval=fuzzyness)
+                fake_label += tf.random_uniform(fake_label.shape,
+                                            minval=-fuzzyness, maxval=fuzzyness)
+                true_label_g += tf.random_uniform(true_label_g.shape,
+                                            minval=-fuzzyness, maxval=fuzzyness)
+
 
             # Calculate discriminator loss
             d_loss_on_data = tf.nn.sigmoid_cross_entropy_with_logits(
-                labels=tf.ones_like(d_on_data_logits),
+                labels=true_label,
                 logits=d_on_data_logits)
             d_loss_on_gen = tf.nn.sigmoid_cross_entropy_with_logits(
-                labels=tf.zeros_like(d_on_g_logits),
+                labels=fake_label,
                 logits=d_on_g_logits)
 
             d_loss = d_loss_on_data + d_loss_on_gen
 
             # Calculate generator loss
             g_loss = tf.nn.sigmoid_cross_entropy_with_logits(
-                labels=tf.ones_like(d_on_g_logits),
+                labels=true_label_g,
                 logits=d_on_g_logits)
+
+            # Create independent encoder
+            if self.use_encoder:
+                if self.encoder == 'INDEPENDENT':
+                    _, g_logits_encoded = self.discriminator(generated_images,
+                                                            scope='Encoder',
+                                                            noise_dim=noise_dim)
+                e_loss = tf.losses.mean_squared_error(
+                    labels=random_noise,
+                    predictions=g_logits_encoded)
+
 
             if mode == tf.estimator.ModeKeys.TRAIN:
                 #########
                 # TRAIN #
                 #########
+                # TODO There has to be a less messy way of doing theis encoder steps
+                if self.use_encoder and self.encoder == 'ATTACHED':
+                    d_loss = d_loss + e_loss
                 d_loss = tf.reduce_mean(d_loss)
+                # Do we use the encoder loss to train on G or is it independent
+                e_loss_on_g = True
+                if self.use_encoder and e_loss_on_g:
+                    g_loss = g_loss + e_loss
                 g_loss = tf.reduce_mean(g_loss)
-                d_optimizer = tf.train.AdamOptimizer(
-                    learning_rate=self.learning_rate, beta1=0.5)
-                g_optimizer = tf.train.AdamOptimizer(
-                    learning_rate=self.learning_rate, beta1=0.5)
+                # ? TODO is this the best way to deal with the optimziers?
+                # d_optimizer = tf.train.GradientDescentOptimizer(
+                #     learning_rate=self.learning_rate)
+                # d_optimizer = tf.train.AdamOptimizer(
+                #     learning_rate=self.learning_rate, beta1=0.5)
+                d_optimizer = self.d_optimizer
+                g_optimizer = self.g_optimizer
 
                 if self.use_tpu:
                     d_optimizer = tf.contrib.tpu.CrossShardOptimizer(d_optimizer)
@@ -198,8 +249,22 @@ class Model(CoreModelTPU):
                         var_list=tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
                                                     scope='Generator'))
 
+                    ops = [d_step, g_step]
+                    if self.use_encoder and self.encoder=='INDEPENDENT':
+                        # If it is not independent it's updated under Discriminator
+                        if self.use_tpu:
+                            e_optimizer =\
+                             tf.contrib.tpu.CrossShardOptimizer(self.e_optimizer)
+
+                        e_step = e_optimizer.minimize(
+                            e_loss,
+                            var_list=tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
+                                                scope='Encoder'))
+                        ops.append(e_step)
+
                     increment_step = tf.assign_add(tf.train.get_or_create_global_step(), 1)
-                    joint_op = tf.group([d_step, g_step, increment_step])
+                    ops.append(increment_step)
+                    joint_op = tf.group(ops)
 
                 return tf.contrib.tpu.TPUEstimatorSpec(
                         mode=mode,

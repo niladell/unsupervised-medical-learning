@@ -5,6 +5,7 @@
 import os
 import json
 import numpy as np
+from pprint import pformat
 
 import tensorflow as tf
 USE_ALTERNATIVE = False
@@ -80,10 +81,14 @@ class CoreModelTPU(object):
         self.data_dir = data_dir
         if model_dir[-1] == '/':
             model_dir = model_dir[:-1]
-        self.model_dir = '{}/{}_{}{}'.format(model_dir,
-                                          self.__class__.__name__,
-                                          'E_' if use_encoder else '',
-                                          learning_rate)
+        self.model_dir =\
+          '{}/{}_{}{}z{}_lr{}'.format(
+                    model_dir,
+                    self.__class__.__name__,
+                    'E' if use_encoder else '',
+                    encoder[0] + '_' if use_encoder and encoder else '',
+                    noise_dim,
+                    learning_rate)
 
         self.use_tpu = use_tpu
         self.tpu = tpu
@@ -118,8 +123,26 @@ class CoreModelTPU(object):
         model_params['g_optimizer'] = g_optimizer
         model_params['e_optimizer'] = e_optimizer
 
-        with tf.gfile.GFile(self.model_dir + 'params.txt', 'wb') as f:
-            f.write(json.dumps(model_params))
+        tf.logging.info('Current parameters: {}'.format(pformat(model_params)))
+
+        if tf.gfile.Exists(self.model_dir):
+            if tf.gfile.Exists(self.model_dir + '/params.txt'):
+                tf.logging.info('Older params file exists.')
+                with tf.gfile.GFile(self.model_dir + '/params.txt', 'rb') as f:
+                    old_params = json.loads(f.read())
+                if model_params != old_params:
+                    tf.logging.info('Is not equal')
+                    # TODO Should definitively ignore tpu stuff
+                    tf.logging.info('Old parameters:\n{}'.format(pformat(model_params)))
+                    raise ValueError('The model in {} should be equal but params.txt differs'.format(self.model_dir))
+            else:
+                tf.logging.warning('Folder exists but without parameters. ' +\
+                  'The code is gonna run assuming the parameters were the ' +\
+                  'same (using the ones defined on this session).')
+        # print('here')
+        # exit()
+        with tf.gfile.GFile(self.model_dir + '/params.txt', 'wb') as f:
+            f.write(json.dumps(model_params, indent=4, sort_keys=True))
 
     def get_optimizer(self, name, learning_rate):
         """Create an optimizer

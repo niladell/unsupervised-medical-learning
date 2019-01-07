@@ -1,7 +1,7 @@
 """Prototype run file
 
 Example run command:
-python src/run_tpu.py --model_dir=gs://[BUCKET_NAME]/cifar10/outputs --data_dir=gs://[BUCKET_NAME]/cifar10/data  --tpu=[TPU_NAME]
+python src/main.py --model_dir=gs://[BUCKET_NAME]/cifar10/outputs --data_dir=gs://[BUCKET_NAME]/cifar10/data  --tpu=[TPU_NAME] --dataset=[DATASET]
 """
 
 import sys

@@ -17,13 +17,6 @@ def _batch_norm(x, is_training, name):
       x, momentum=0.9, epsilon=1e-5, training=is_training, name=name)
 
 
-def _dense(x, channels, name):
-  return tf.layers.dense(
-      x, channels,
-      kernel_initializer=tf.truncated_normal_initializer(stddev=0.02),
-      name=name)
-
-
 def _conv2d(x, filters, kernel_size, stride, name):
   return tf.layers.conv2d(
       x, filters, [kernel_size, kernel_size],
@@ -50,38 +43,41 @@ class Model(CoreModelTPU):
             tf.logging.debug('Discriminator %s', self.dataset)
             tf.logging.debug('D -- Input %s', x)
 
+            df_dim = 64  #   Still not sure of this:
+                         # Form carpedm20 "Dimension of gen filters in first conv layer"
+
             if self.dataset == 'celebA':
                 # 64 x 64
-                x = _conv2d(x, 32, 5, 2, name='d_conv0')
+                x = _conv2d(x, df_dim, 5, 2, name='d_conv0')
                 x = _leaky_relu(x)
                 tf.logging.debug(x)
 
                 # 32 x 32
-                x = _conv2d(x, 64, 5, 2, name='d_conv1')
+                x = _conv2d(x, df_dim * 2, 5, 2, name='d_conv1')
                 x = _leaky_relu(_batch_norm(x, is_training, name='d_bn1'))
                 tf.logging.debug(x)
 
             else:  # CIFAR10
                 # 32 x 32
-                x = _conv2d(x, 64, 5, 2, name='d_conv1')
+                x = _conv2d(x, df_dim * 2, 5, 2, name='d_conv1')
                 x = _leaky_relu(x)
                 tf.logging.debug(x)
 
             # 16 x 16
-            x = _conv2d(x, 128, 5, 2, name='d_conv2')
+            x = _conv2d(x, df_dim * 4, 5, 2, name='d_conv2')
             x = _leaky_relu(_batch_norm(x, is_training, name='d_bn2'))
             tf.logging.debug(x)
 
             # 8 x 8
-            x = _conv2d(x, 256, 5, 2, name='d_conv3')
+            x = _conv2d(x, df_dim * 4, 5, 2, name='d_conv3')
             x = _leaky_relu(_batch_norm(x, is_training, name='d_bn3'))
             tf.logging.debug(x)
 
             # 4 x 4
-            x = tf.reshape(x, [-1, 4 * 4 * 256])
+            x = tf.reshape(x, [-1, 4 * 4 * df_dim * 8])
             tf.logging.debug(x)
 
-            x = _dense(x, 1, name='d_fc_4')
+            x = tf.layers.Dense(units=1, name='d_fc_4')(x)
             tf.logging.debug(x)
 
             return x
@@ -91,25 +87,29 @@ class Model(CoreModelTPU):
             tf.logging.debug('Generator %s', self.dataset)
             tf.logging.debug('G -- Input %s', x)
 
-            x = _dense(x, 4096, name='g_fc1')
+            gf_dim = 64  #   Still not sure of this:
+                         # Form carpedm20 "Dimension of gen filters in first conv layer"
+
+
+            x = tf.layers.Dense(units=gf_dim * 8 * 4 * 4, name='g_fc1')(x)
             x = tf.nn.relu(_batch_norm(x, is_training, name='g_bn1'))
             tf.logging.debug(x)
-            x = tf.reshape(x, [-1, 4, 4, 256])
+            x = tf.reshape(x, [-1, 4, 4, gf_dim * 8])
             tf.logging.debug(x)
             # 4 x 4
 
-            x = _deconv2d(x, 128, 5, 2, name='g_dconv2')
+            x = _deconv2d(x, gf_dim * 4, 5, 2, name='g_dconv2')
             x = tf.nn.relu(_batch_norm(x, is_training, name='g_bn2'))
             tf.logging.debug(x)
             # 8 x 8
 
-            x = _deconv2d(x, 64, 4, 2, name='g_dconv3')
+            x = _deconv2d(x, gf_dim * 2, 4, 2, name='g_dconv3')
             x = tf.nn.relu(_batch_norm(x, is_training, name='g_bn3'))
             tf.logging.debug(x)
             # 16 x 16
 
             if self.dataset == 'celebA':
-                x = _deconv2d(x, 32, 4, 2, name='g_dconv4')
+                x = _deconv2d(x, gf_dim, 4, 2, name='g_dconv4')
                 x = tf.nn.relu(_batch_norm(x, is_training, name='g_bn4'))
                 tf.logging.debug(x)
                 # 32 x 32

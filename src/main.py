@@ -43,6 +43,11 @@ flags.DEFINE_string('data_dir', '', 'Dataset directory')
 flags.DEFINE_string('dataset', 'CIFAR10', 'Which dataset to use')
 flags.DEFINE_integer('noise_dim', 64,
                      'Number of dimensions for the noise vector')
+flags.DEFINE_string('g_optimizer', 'ADAM', 'Optimizer to use for the'
+                     'generator (now supported: ADAM')
+flags.DEFINE_string('d_optimizer', 'SGD', 'Optimizer to use for the'
+                     'discriminator (now supported: SGD, ADAM')
+
 flags.DEFINE_integer('batch_size', 1024,
                      'Batch size for both generator and discriminator')
 flags.DEFINE_integer('train_steps', 50000, 'Number of training steps')
@@ -72,6 +77,7 @@ if __name__ == "__main__":
     model = Model(model_dir=FLAGS.model_dir, data_dir=FLAGS.data_dir, dataset=FLAGS.dataset,
                 # Model parameters
                 learning_rate=FLAGS.learning_rate, batch_size=FLAGS.batch_size, noise_dim=FLAGS.noise_dim,
+                g_optimizer=FLAGS.g_optimizer, d_optimizer=FLAGS.d_optimizer,
                 # Training and prediction settings
                 iterations_per_loop=FLAGS.iterations_per_loop, num_viz_images=FLAGS.num_viz_images,
                 # Evaluation settings

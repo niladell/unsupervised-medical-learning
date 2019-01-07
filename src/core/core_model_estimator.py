@@ -33,6 +33,8 @@ class CoreModelTPU(object):
                  data_dir: str,
                  dataset: str,
                  learning_rate: float = 0.0002,
+                 d_optimizer: str = 'SGD',
+                 g_optimizer: str = 'ADAM',
                  noise_dim: int = 64,
                  batch_size: int = 128,
                  iterations_per_loop: int = 100,
@@ -52,6 +54,8 @@ class CoreModelTPU(object):
             model_dir (str): Model directory
             data_dir (str): Data directory
             learning_rate (float, optional): Defaults to 0.0002.
+            d_optimizer (str): Optimizer to use in the discriminator. Defaults to SGD.
+            g_optimizer (str): Optimizer to use in the generator. Defaults to ADAM.
             batch_size (int, optional): Defaults to 1024.
             iterations_per_loop (int, optional): Defaults to 500. Iteratios per loop on the estimator.
             num_viz_images (int, optional): Defaults to 100. Number of example images generated.
@@ -77,6 +81,8 @@ class CoreModelTPU(object):
         self.num_shards = num_shards
 
         self.learning_rate = learning_rate
+        self.g_optimizer = self.get_optimizer(g_optimizer, learning_rate)
+        self.d_optimizer = self.get_optimizer(d_optimizer, learning_rate)
         self.noise_dim = noise_dim
         self.batch_size = batch_size
         self.iterations_per_loop = iterations_per_loop
@@ -85,6 +91,23 @@ class CoreModelTPU(object):
         self.eval_loss = eval_loss
         self.train_steps_per_eval = train_steps_per_eval
         self.num_eval_images = num_eval_images
+
+    def get_optimizer(self, name, learning_rate):
+        """Create an optimizer
+
+        Available names: 'ADAM', 'SGD'
+        """
+        # TODO change learning rate for a dict with all the posible \
+        # parameters e.g. ADAM: learning rate, epsilon, beta1, beta2..
+        if name == 'ADAM':
+            return tf.train.AdamOptimizer(
+                learning_rate=learning_rate)
+        elif name == 'SGD':
+            return tf.train.GradientDescentOptimizer(
+                learning_rate=learning_rate)
+        else:
+            raise NameError('Optimizer {} not recognised'.format(name))
+
 
     def generate_model_fn(self):
         """Definition of the model function to use. It should return a model_fn

@@ -196,10 +196,13 @@ class Model(CoreModelTPU):
                 #########
                 d_loss = tf.reduce_mean(d_loss)
                 g_loss = tf.reduce_mean(g_loss)
-                d_optimizer = tf.train.AdamOptimizer(
-                    learning_rate=self.learning_rate, beta1=0.5)
-                g_optimizer = tf.train.AdamOptimizer(
-                    learning_rate=self.learning_rate, beta1=0.5)
+                # ? TODO is this the best way to deal with the optimziers?
+                # d_optimizer = tf.train.GradientDescentOptimizer(
+                #     learning_rate=self.learning_rate)
+                # d_optimizer = tf.train.AdamOptimizer(
+                #     learning_rate=self.learning_rate, beta1=0.5)
+                d_optimizer = self.d_optimizer
+                g_optimizer = self.g_optimizer
 
                 if self.use_tpu:
                     d_optimizer = tf.contrib.tpu.CrossShardOptimizer(d_optimizer)

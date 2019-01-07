@@ -10,30 +10,31 @@ from sklearn.preprocessing import StandardScaler
 import pandas as pd
 from mpl_toolkits.mplot3d import Axes3D
 
-
-tf.enable_eager_execution()
-
-
-path='/Users/ines/Desktop/subjects/subject108/Unknown Study/CT 0.625mm'
-os.chdir(path)
-
-filename = 'CT000000.dcm'
-
-ds = pydicom.dcmread(filename) # direct conversion of ds to tensor does not work!
-
-######################################
-# PLAYING AROUND WITH PATRICK'S CODE #
-######################################
-
 from PIL import Image
+import PIL
 import numpy as np
-import skimage.io as io
 import tensorflow as tf
 import pydicom
 import matplotlib.pyplot as plt
 import re
 
-path2 = '/Users/ines/Desktop/pca_experiments'
+
+tf.enable_eager_execution()
+
+
+# path='/Users/ines/Desktop/subjects/subject108/Unknown Study/CT 0.625mm'
+# os.chdir(path)
+
+# filename = 'CT000000.dcm'
+#
+# ds = pydicom.dcmread(filename) # direct conversion of ds to tensor does not work!
+
+######################################
+# PLAYING AROUND WITH PATRICK'S CODE #
+######################################
+
+
+path2 = '/Users/ines/Desktop/subjects copy'
 os.chdir(path2)
 
 def _bytes_feature(value):
@@ -51,33 +52,34 @@ def _float_feature(value):
 tfrecords_outfile = 'test.tfrecords'
 
 
-filename = 'CT000000.dcm'
-ds = pydicom.dcmread(filename)
-print(ds)
+# filename = 'CT000000.dcm'
+# ds = pydicom.dcmread(filename)
+# print(ds)
+#
+# pixel_data = []
+# for file in os.listdir(path2):
+#     pattern = re.compile(r'.dcm$')
+#     m = re.search(pattern, file)
+#     if m is not None:
+#         # print(file)
+#         # writer = tf.python_io.TFRecordWriter(tfrecords_outfile)
+#         ds = pydicom.dcmread(file)
+#         img_raw = ds.PixelData
+        # height = ds.pixel_array.shape[0]
+        # width = ds.pixel_array.shape[1]
+        # location = ds.get('SliceLocation', "(missing)")
+        # identity = ds.get('PatientID')
+        # identity_nr = re.findall(r'\d+$', identity)
 
-pixel_data = []
-for file in os.listdir(path2):
-    pattern = re.compile(r'.dcm$')
-    m = re.search(pattern, file)
-    if m is not None:
-        # writer = tf.python_io.TFRecordWriter(tfrecords_outfile)
-        ds = pydicom.dcmread(file)
-        img_raw = ds.PixelData
-        height = ds.pixel_array.shape[0]
-        width = ds.pixel_array.shape[1]
-        location = ds.get('SliceLocation', "(missing)")
-        identity = ds.get('PatientID')
-        identity_nr = re.findall(r'\d+$', identity)
-
-        example = tf.train.Example(features=tf.train.Features(feature={
-            'height': _int64_feature(height),
-            'width': _int64_feature(width),
-            'image_raw': _bytes_feature(img_raw),
-            'identity_nr': _int64_feature(int(identity_nr[0])),
-            'slice_location': _float_feature(location)}))
+        # example = tf.train.Example(features=tf.train.Features(feature={
+        #     'height': _int64_feature(height),
+        #     'width': _int64_feature(width),
+        #     'image_raw': _bytes_feature(img_raw),
+        #     'identity_nr': _int64_feature(int(identity_nr[0])),
+        #     'slice_location': _float_feature(location)}))
 
         # save pixel information to list
-        pixel_data.append(img_raw)
+        # pixel_data.append(img_raw)
 
         # # print(example)
         # writer.write(example.SerializeToString())
@@ -95,6 +97,7 @@ for file in os.listdir(path2):
     pattern = re.compile(r'.dcm$')
     m = re.search(pattern, file)
     if m is not None:
+        # print(file)
         dcm = pydicom.dcmread(file)
         x.append(dcm.pixel_array)
 
@@ -136,6 +139,7 @@ x_train = pca.fit_transform(x_reshaped)
 principalDf = pd.DataFrame(data = x_train, columns = ['principal component 1', 'principal component 2', 'principal component 3'])
 
 # Visualization (commented out code leads to 3D visualization)
+# Tutorial on 3D visualization in matplotlib: https://matplotlib.org/mpl_toolkits/mplot3d/tutorial.html
 fig = plt.figure(figsize = (8,8))
 # ax = fig.add_subplot(1,1,1)
 # ax = plt.axes(projection='3d')
@@ -149,6 +153,6 @@ ax.grid()
 plt.show()
 
 # Trying to reconstruct the image
-approximation = pca.inverse_transform(x_test)
+approximation = pca.inverse_transform(x_train)
 
 

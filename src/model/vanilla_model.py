@@ -69,7 +69,7 @@ class Model(CoreModelTPU):
             tf.logging.debug(x)
 
             # 8 x 8
-            x = _conv2d(x, df_dim * 4, 5, 2, name='d_conv3')
+            x = _conv2d(x, df_dim * 8, 5, 2, name='d_conv3')
             x = _leaky_relu(_batch_norm(x, is_training, name='d_bn3'))
             tf.logging.debug(x)
 

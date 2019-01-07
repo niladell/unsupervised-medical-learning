@@ -6,6 +6,10 @@ import tensorflow as tf
 import pdb
 import numpy as np
 from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+import pandas as pd
+from mpl_toolkits.mplot3d import Axes3D
+
 
 tf.enable_eager_execution()
 
@@ -113,12 +117,38 @@ singular_values, u, _ = tf.svd(list_tensors)
 sigma = tf.diag(singular_values)
 
 ## With sklearn
-pixel_stuff = pixel_data[0:2]
-pca = PCA(n_components=5)
-pca.fit(pixel_stuff)
-
+# Preprocessing:
 x_array = np.asarray(x)
 x_reshaped = x_array.reshape(36, 512*512) # This particular reshaping is inspired by:
 # https://stackoverflow.com/questions/48003185/sklearn-dimensionality-issues-found-array-with-dim-3-estimator-expected-2
-pca.fit(x_reshaped)
+pixel_stuff = pixel_data[0:2]
+
+# Normalization
+sc = StandardScaler()
+x_normalized = sc.fit_transform(x_reshaped)
+
+# Performing PCA
+pca = PCA(n_components=3)
+# pca.fit(pixel_stuff) # has to have 2 or less dimensions
+
+x_train = pca.fit_transform(x_reshaped)
+
+principalDf = pd.DataFrame(data = x_train, columns = ['principal component 1', 'principal component 2', 'principal component 3'])
+
+# Visualization (commented out code leads to 3D visualization)
+fig = plt.figure(figsize = (8,8))
+# ax = fig.add_subplot(1,1,1)
+# ax = plt.axes(projection='3d')
+ax = fig.add_subplot(111) #, projection='3d')
+ax.set_xlabel('Principal Component 1', fontsize = 15)
+ax.set_ylabel('Principal Component 2', fontsize = 15)
+# ax.set_zlabel('Principal Component 3', fontsize = 15)
+ax.set_title('3 component PCA', fontsize = 20)
+ax.scatter(principalDf.loc[:, 'principal component 1'], principalDf.loc[:, 'principal component 2'])#, principalDf.loc[:, 'principal component 3'])
+ax.grid()
+plt.show()
+
+# Trying to reconstruct the image
+approximation = pca.inverse_transform(x_test)
+
 

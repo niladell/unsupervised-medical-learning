@@ -3,6 +3,7 @@
 """
 
 import os
+import json
 import numpy as np
 
 import tensorflow as tf
@@ -79,7 +80,10 @@ class CoreModelTPU(object):
         self.data_dir = data_dir
         if model_dir[-1] == '/':
             model_dir = model_dir[:-1]
-        self.model_dir = model_dir # + '/' + self.__class__.__name__
+        self.model_dir = '{}/{}_{}{}'.format(model_dir,
+                                          self.__class__.__name__,
+                                          'E_' if use_encoder else '',
+                                          learning_rate)
 
         self.use_tpu = use_tpu
         self.tpu = tpu
@@ -93,6 +97,8 @@ class CoreModelTPU(object):
         self.noise_dim = noise_dim
 
         self.use_encoder = use_encoder
+        if encoder not in ['ATTACHED', 'INDEPENDENT']:
+            raise NameError('Encoder type not defined.')
         self.encoder = encoder
         self.e_optimizer = None
         if use_encoder:
@@ -105,6 +111,15 @@ class CoreModelTPU(object):
         self.eval_loss = eval_loss
         self.train_steps_per_eval = train_steps_per_eval
         self.num_eval_images = num_eval_images
+
+        from copy import deepcopy
+        model_params = deepcopy(self.__dict__)
+        model_params['d_optimizer'] = d_optimizer
+        model_params['g_optimizer'] = g_optimizer
+        model_params['e_optimizer'] = e_optimizer
+
+        with tf.gfile.GFile(self.model_dir + 'params.txt', 'wb') as f:
+            f.write(json.dumps(model_params))
 
     def get_optimizer(self, name, learning_rate):
         """Create an optimizer

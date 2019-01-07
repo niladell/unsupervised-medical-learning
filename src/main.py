@@ -6,13 +6,11 @@ python src/main.py --model_dir=gs://[BUCKET_NAME]/cifar10/outputs --data_dir=gs:
 
 import sys
 import logging
-
-logging.basicConfig(level=logging.INFO,
-                    format='%(filename)s: '
-                            '%(levelname)s: '
-                            '%(funcName)s(): '
-                            '%(lineno)d:\t'
-                            '%(message)s')
+logging.basicConfig(format='%(filename)s: '
+                           '%(levelname)s: '
+                           '%(funcName)s(): '
+                           '%(lineno)d:\t'
+                           '%(message)s')
 from absl import flags
 import tensorflow as tf
 # TODO ¿move all to normal logging module?
@@ -49,7 +47,7 @@ flags.DEFINE_string('d_optimizer', 'SGD', 'Optimizer to use for the'
                      'discriminator (now supported: SGD, ADAM')
 
 flags.DEFINE_boolean('use_encoder', False, 'Use an encoder')
-flags.DEFINE_string('encoder', 'ATTAHCED', 'Type of encoder to use.'
+flags.DEFINE_string('encoder', 'ATTACHED', 'Type of encoder to use.'
                     'Options are "ATTACHED" or "INDEPENDENT"')
 flags.DEFINE_string('e_optimizer', 'ADAM',  'Optimizer to use for the'
                      'encoder (now supported: SGD, ADAM')
@@ -70,9 +68,12 @@ flags.DEFINE_float('learning_rate', 0.0002, 'LR for both D and G')
 flags.DEFINE_boolean('eval_loss', True,
                      'Evaluate discriminator and generator loss during eval')
 
+flags.DEFINE_string('log_level', 'INFO', 'Logging level')
 
 if __name__ == "__main__":
     FLAGS(sys.argv)
+    log = logging.getLogger('tensorflow')
+    log.setLevel(FLAGS.log_level)
 
     from model import Model
     if FLAGS.dataset == 'CIFAR10':

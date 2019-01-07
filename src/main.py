@@ -48,6 +48,12 @@ flags.DEFINE_string('g_optimizer', 'ADAM', 'Optimizer to use for the'
 flags.DEFINE_string('d_optimizer', 'SGD', 'Optimizer to use for the'
                      'discriminator (now supported: SGD, ADAM')
 
+flags.DEFINE_boolean('use_encoder', False, 'Use an encoder')
+flags.DEFINE_string('encoder', 'ATTAHCED', 'Type of encoder to use.'
+                    'Options are "ATTACHED" or "INDEPENDENT"')
+flags.DEFINE_string('e_optimizer', 'ADAM',  'Optimizer to use for the'
+                     'encoder (now supported: SGD, ADAM')
+
 flags.DEFINE_integer('batch_size', 1024,
                      'Batch size for both generator and discriminator')
 flags.DEFINE_integer('train_steps', 50000, 'Number of training steps')
@@ -77,7 +83,10 @@ if __name__ == "__main__":
     model = Model(model_dir=FLAGS.model_dir, data_dir=FLAGS.data_dir, dataset=FLAGS.dataset,
                 # Model parameters
                 learning_rate=FLAGS.learning_rate, batch_size=FLAGS.batch_size, noise_dim=FLAGS.noise_dim,
-                g_optimizer=FLAGS.g_optimizer, d_optimizer=FLAGS.d_optimizer,
+                # Encoder
+                use_encoder=FLAGS.use_encoder, encoder=FLAGS.encoder,
+                # Optimizers
+                g_optimizer=FLAGS.g_optimizer, d_optimizer=FLAGS.d_optimizer, e_optimizer=FLAGS.e_optimizer,
                 # Training and prediction settings
                 iterations_per_loop=FLAGS.iterations_per_loop, num_viz_images=FLAGS.num_viz_images,
                 # Evaluation settings

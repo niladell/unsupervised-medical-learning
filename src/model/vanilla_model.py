@@ -38,7 +38,7 @@ class Model(CoreModelTPU):
     Example definition of a model/network architecture using this template.
     """
 
-    def discriminator(self, x, is_training=True, scope='Discriminator'):
+    def discriminator(self, x, is_training=True, scope='Discriminator', noise_dim=None):
         with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
             tf.logging.debug('Discriminator %s', self.dataset)
             tf.logging.debug('D -- Input %s', x)
@@ -77,10 +77,15 @@ class Model(CoreModelTPU):
             x = tf.reshape(x, [-1, 4 * 4 * df_dim * 8])
             tf.logging.debug(x)
 
-            x = tf.layers.Dense(units=1, name='d_fc_4')(x)
-            tf.logging.debug(x)
+            discriminate = tf.layers.Dense(units=1, name='discriminate')(x)
+            tf.logging.debug(discriminate)
 
-            return x
+            if noise_dim:
+                encode = tf.layers.Dense(units=noise_dim, name='encode')(x)
+                tf.logging.debug(encode)
+                return discriminate, encode
+
+            return discriminate
 
     def generator(self, x, is_training=True, scope='Generator'):
         with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
@@ -147,16 +152,24 @@ class Model(CoreModelTPU):
 
             # Use params['batch_size'] for the batch size inside model_fn
             batch_size = params['batch_size']   # pylint: disable=unused-variable
+            noise_dim = params['noise_dim']
             real_images = features['real_images']
             random_noise = features['random_noise']
 
             is_training = (mode == tf.estimator.ModeKeys.TRAIN)
             generated_images = self.generator(random_noise,
-                                                is_training=is_training)
+                                              is_training=is_training)
 
             # Get logits from discriminator
             d_on_data_logits = tf.squeeze(self.discriminator(real_images))
-            d_on_g_logits = tf.squeeze(self.discriminator(generated_images))
+            if self.use_encoder and self.encoder == 'ATTACHED':
+                # If we use and embedded encoder we create it here
+                d_on_g_logits, g_logits_encoded =\
+                    self.discriminator(generated_images, noise_dim=noise_dim)
+                d_on_g_logits = tf.squeeze(d_on_g_logits)
+            else:
+                # Regular GAN w/o encoder
+                d_on_g_logits = tf.squeeze(self.discriminator(generated_images))
 
             # Create the labels
             true_label = tf.ones_like(d_on_data_logits)
@@ -190,11 +203,29 @@ class Model(CoreModelTPU):
                 labels=true_label_g,
                 logits=d_on_g_logits)
 
+            # Create independent encoder
+            if self.use_encoder:
+                if self.encoder == 'INDEPENDENT':
+                    _, g_logits_encoded = self.discriminator(generated_images,
+                                                            scope='Encoder',
+                                                            noise_dim=noise_dim)
+                e_loss = tf.losses.mean_squared_error(
+                    labels=random_noise,
+                    predictions=g_logits_encoded)
+
+
             if mode == tf.estimator.ModeKeys.TRAIN:
                 #########
                 # TRAIN #
                 #########
+                # TODO There has to be a less messy way of doing theis encoder steps
+                if self.use_encoder and self.encoder == 'ATTACHED':
+                    d_loss = d_loss + e_loss
                 d_loss = tf.reduce_mean(d_loss)
+                # Do we use the encoder loss to train on G or is it independent
+                e_loss_on_g = True
+                if self.use_encoder and e_loss_on_g:
+                    g_loss = g_loss + e_loss
                 g_loss = tf.reduce_mean(g_loss)
                 # ? TODO is this the best way to deal with the optimziers?
                 # d_optimizer = tf.train.GradientDescentOptimizer(
@@ -218,8 +249,22 @@ class Model(CoreModelTPU):
                         var_list=tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
                                                     scope='Generator'))
 
+                    ops = [d_step, g_step]
+                    if self.use_encoder and self.encoder=='INDEPENDENT':
+                        # If it is not independent it's updated under Discriminator
+                        if self.use_tpu:
+                            e_optimizer =\
+                             tf.contrib.tpu.CrossShardOptimizer(self.e_optimizer)
+
+                        e_step = e_optimizer.minimize(
+                            e_loss,
+                            var_list=tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
+                                                scope='Encoder'))
+                        ops.append(e_step)
+
                     increment_step = tf.assign_add(tf.train.get_or_create_global_step(), 1)
-                    joint_op = tf.group([d_step, g_step, increment_step])
+                    ops.append(increment_step)
+                    joint_op = tf.group(ops)
 
                 return tf.contrib.tpu.TPUEstimatorSpec(
                         mode=mode,

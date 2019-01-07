@@ -36,6 +36,9 @@ class CoreModelTPU(object):
                  d_optimizer: str = 'SGD',
                  g_optimizer: str = 'ADAM',
                  noise_dim: int = 64,
+                 use_encoder: bool = False,
+                 encoder: str = None,
+                 e_optimizer: str = None,
                  batch_size: int = 128,
                  iterations_per_loop: int = 100,
                  num_viz_images: int = 100,
@@ -56,6 +59,10 @@ class CoreModelTPU(object):
             learning_rate (float, optional): Defaults to 0.0002.
             d_optimizer (str): Optimizer to use in the discriminator. Defaults to SGD.
             g_optimizer (str): Optimizer to use in the generator. Defaults to ADAM.
+            noise_dim (int): Size of the nose (or feature) space. Defaults to 64.
+            use_encoder (bool): Defaults to False.
+            encoder (str): Which encoder to use. 'ATTACHED' to the discriminator or 'INDEPENDENT' from it.
+            e_optimizer (str): Optimizer to use in the encoder. Defaults to ADAM.
             batch_size (int, optional): Defaults to 1024.
             iterations_per_loop (int, optional): Defaults to 500. Iteratios per loop on the estimator.
             num_viz_images (int, optional): Defaults to 100. Number of example images generated.
@@ -72,7 +79,7 @@ class CoreModelTPU(object):
         self.data_dir = data_dir
         if model_dir[-1] == '/':
             model_dir = model_dir[:-1]
-        self.model_dir = model_dir + '/' + self.__class__.__name__
+        self.model_dir = model_dir # + '/' + self.__class__.__name__
 
         self.use_tpu = use_tpu
         self.tpu = tpu
@@ -84,6 +91,13 @@ class CoreModelTPU(object):
         self.g_optimizer = self.get_optimizer(g_optimizer, learning_rate)
         self.d_optimizer = self.get_optimizer(d_optimizer, learning_rate)
         self.noise_dim = noise_dim
+
+        self.use_encoder = use_encoder
+        self.encoder = encoder
+        self.e_optimizer = None
+        if use_encoder:
+            self.e_optimizer = self.get_optimizer(e_optimizer, learning_rate)
+
         self.batch_size = batch_size
         self.iterations_per_loop = iterations_per_loop
 

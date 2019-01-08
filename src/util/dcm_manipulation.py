@@ -16,7 +16,7 @@ import tensorflow as tf
 import pydicom
 import matplotlib.pyplot as plt
 import re
-import gdcm
+# import gdcm
 from tqdm import tqdm
 
 

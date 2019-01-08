@@ -7,7 +7,7 @@ Adversarial Networks" by A. Radford et. al.
 
 import tensorflow as tf
 from core import CoreModelTPU
-from .vanilla_ops import batch_norm, g_block, d_block, _leaky_relu, _conv2d
+from .resBlocks_ops import batch_norm, g_block, d_block, _leaky_relu, _conv2d
 
 class Model(CoreModelTPU):
     """

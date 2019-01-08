@@ -2,8 +2,10 @@
 
 # from .CIFAR_example_model import ExampleModel
 from .CIFAR_example_model import ExampleModel
-from .vanilla_model import Model
+from .basic_model import BasicModel
+from .resBlocks_model import ResModel
 __all__ = (
     'ExampleModel',
-    'Model'
+    'BasicModel',
+    'ResModel'
 )

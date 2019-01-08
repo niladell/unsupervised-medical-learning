@@ -69,6 +69,8 @@ flags.DEFINE_boolean('eval_loss', True,
                      'Evaluate discriminator and generator loss during eval')
 
 flags.DEFINE_string('log_level', 'INFO', 'Logging level')
+flags.DEFINE_boolean('ignore_param_check', False,
+                    'Ignores checking parameters and overwrites params.txt')
 
 if __name__ == "__main__":
     FLAGS(sys.argv)

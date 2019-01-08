@@ -51,7 +51,8 @@ class CoreModelTPU(object):
                  tpu: str = '',
                  tpu_zone: str = None,
                  gcp_project: str = None,
-                 num_shards: int = None
+                 num_shards: int = None,
+                 ignore_params_check: bool = False
                 ):
         """Wrapper class for the model.
 
@@ -76,6 +77,7 @@ class CoreModelTPU(object):
             tpu_zone (str, optional): Defaults to None.
             gcp_project (str, optional): Defaults to None.
             num_shards (int, optional): Defaults to None.
+            ignore_params_check (bool): Runs without checking parameters form previous runs. Defaults to False.
         """
         self.dataset = dataset
         self.data_dir = data_dir
@@ -125,24 +127,66 @@ class CoreModelTPU(object):
 
         tf.logging.info('Current parameters: {}'.format(pformat(model_params)))
 
-        if tf.gfile.Exists(self.model_dir):
-            if tf.gfile.Exists(self.model_dir + '/params.txt'):
-                tf.logging.info('Older params file exists.')
-                with tf.gfile.GFile(self.model_dir + '/params.txt', 'rb') as f:
-                    old_params = json.loads(f.read())
-                if model_params != old_params:
-                    tf.logging.info('Is not equal')
-                    # TODO Should definitively ignore tpu stuff
-                    tf.logging.info('Old parameters:\n{}'.format(pformat(model_params)))
-                    raise ValueError('The model in {} should be equal but params.txt differs'.format(self.model_dir))
-            else:
-                tf.logging.warning('Folder exists but without parameters. ' +\
-                  'The code is gonna run assuming the parameters were the ' +\
-                  'same (using the ones defined on this session).')
-        # print('here')
-        # exit()
+        if ignore_params_check:
+            tf.logging.warning('--ignore_params_check is set to True. The model is ' +\
+                'not gonna check for compatibility with the previous parameters and ' +\
+                'will overwrite params.txt file if it existed already.')
+        else:
+            if tf.gfile.Exists(self.model_dir):
+                if tf.gfile.Exists(self.model_dir + '/params.txt'):
+                    tf.logging.info('Older params file exists.')
+                    with tf.gfile.GFile(self.model_dir + '/params.txt', 'rb') as f:
+                        old_params = json.loads(f.read())
+                    equal, model_params = self.equal_parms(model_params, old_params)
+                    if not equal:
+                        raise ValueError('The following parameters in params.txt differ: \n{}'.format(pformat(model_params)))
+                else:
+                    tf.logging.warning('Folder exists but without parameters. ' +\
+                    'The code is gonna run assuming the parameters were the ' +\
+                    'same (but using the ones defined on this session).')
+
+        # Save the params (or the updated version with unrelevant changes)
         with tf.gfile.GFile(self.model_dir + '/params.txt', 'wb') as f:
             f.write(json.dumps(model_params, indent=4, sort_keys=True))
+
+
+    def equal_parms(self, model_params, old_params):
+        """Compare the old model parameters with the newly defined ones"""
+
+        # If both are equal
+        if model_params == old_params:
+            return True, model_params
+
+        # If different this parameters should not affect the model or training outcome
+        non_relevant_data = ['use_tpu', 'tpu', 'tpu_zone', 'gcp_project', 'num_shards',
+                             'num_viz_images', 'eval_loss', 'train_steps_per_eval',
+                             'num_eval_images'] # What else should be here?
+
+        def compare(old, new):
+            old_keys = set(old.keys())
+            new_keys = set(new.keys())
+            intersect_keys = old_keys.intersection(new_keys)
+            if len(intersect_keys) != len(old_keys):
+                raise ValueError('The model parameters have different elements (options). ' +\
+                        'If this was expected run the model with the --ignore_param_check')
+            modified = {o : (old[o], new[o]) for o in intersect_keys if old[o] != new[o]}
+            return modified
+        modified = compare(old_params, model_params)
+
+        # If the changes are gonna be critical to the model
+        relevant_changes = {}
+        for elem in modified:
+            if elem not in non_relevant_data:
+                relevant_changes[elem] = ' OLD: {} --> NEW: {}'.format(old_params[elem], model_params[elem])
+        if relevant_changes:
+            return False, relevant_changes
+
+        # If there are changes but should not affect teh model
+        tf.logging.warning('There have been parameter changes but these are unrelated to the model')
+        for elem in modified:
+            model_params[elem] = ' --> '.join([old_params[elem], model_params[elem]])
+        tf.logging.warning(pformat(model_params))
+        return True, model_params
 
     def get_optimizer(self, name, learning_rate):
         """Create an optimizer

@@ -1,6 +1,5 @@
 import matplotlib.pyplot as plt
-import pydicom
-from pydicom.data import get_testdata_files
+# from pydicom.data import get_testdata_files
 import os
 import tensorflow as tf
 import pdb
@@ -10,16 +9,18 @@ from sklearn.preprocessing import StandardScaler
 import pandas as pd
 from mpl_toolkits.mplot3d import Axes3D
 
-from PIL import Image
-import PIL
+# from PIL import Image
+# import PIL
 import numpy as np
 import tensorflow as tf
 import pydicom
 import matplotlib.pyplot as plt
 import re
+import gdcm
+from tqdm import tqdm
 
 
-tf.enable_eager_execution()
+# tf.enable_eager_execution()
 
 
 # path='/Users/ines/Desktop/subjects/subject108/Unknown Study/CT 0.625mm'
@@ -93,13 +94,16 @@ tfrecords_outfile = 'test.tfrecords'
 
 
 x = []
-for file in os.listdir(path2):
+id = []
+for file in tqdm(os.listdir(path2)):
     pattern = re.compile(r'.dcm$')
     m = re.search(pattern, file)
     if m is not None:
         # print(file)
         dcm = pydicom.dcmread(file)
+        identity = dcm.get('PatientID')
         x.append(dcm.pixel_array)
+        id.append(identity)
 
 # tft.pca(x, output_dim=4, dtype=tf.float64)
 
@@ -121,10 +125,25 @@ sigma = tf.diag(singular_values)
 
 ## With sklearn
 # Preprocessing:
-x_array = np.asarray(x)
-x_reshaped = x_array.reshape(36, 512*512) # This particular reshaping is inspired by:
+x_array = np.asarray(x) # convert to np.array for ease of manipulation
+id_array = np.asarray(id)
+
+x_reshaped = x_array.reshape(x_array.shape[0], 512*512) # Reshape so you can run sk-learn pca
+# This particular reshaping is inspired by:
 # https://stackoverflow.com/questions/48003185/sklearn-dimensionality-issues-found-array-with-dim-3-estimator-expected-2
-pixel_stuff = pixel_data[0:2]
+
+#Small experiment
+id_array = np.array([2,3,4,5])
+id_reshaped = id_array.reshape((id_array.shape[0],1,1))
+id_repeat = np.repeat(id_reshaped, 5, axis=1)
+id_repeat = np.repeat(id_repeat, 5, axis=2)
+id_reshaped = id_repeat.reshape(id_repeat.shape[0], 5*5)
+
+id_reshaped = id_array.reshape((id_array.shape[0],1,1))
+id_repeat = np.repeat(id_reshaped, 512, axis=1)
+id_repeat = np.repeat(id_repeat, 512, axis=2)
+id_reshaped = id_repeat.reshape(x_array.shape[0], 512*512)
+
 
 # Normalization
 sc = StandardScaler()
@@ -148,7 +167,14 @@ ax.set_xlabel('Principal Component 1', fontsize = 15)
 ax.set_ylabel('Principal Component 2', fontsize = 15)
 # ax.set_zlabel('Principal Component 3', fontsize = 15)
 ax.set_title('3 component PCA', fontsize = 20)
-ax.scatter(principalDf.loc[:, 'principal component 1'], principalDf.loc[:, 'principal component 2'])#, principalDf.loc[:, 'principal component 3'])
+set_ids = set(id)
+colors = ['blue', 'black']
+for iden, color in zip(set_ids, colors):
+    idx = id_array == iden
+    ax.scatter(principalDf.loc[idx, 'principal component 1'],
+               principalDf.loc[idx, 'principal component 2'],
+               color=color
+               )#, principalDf.loc[:, 'principal component 3'])
 ax.grid()
 plt.show()
 

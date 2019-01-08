@@ -3,7 +3,9 @@
 """
 
 import os
+import json
 import numpy as np
+from pprint import pformat
 
 import tensorflow as tf
 USE_ALTERNATIVE = False
@@ -33,7 +35,12 @@ class CoreModelTPU(object):
                  data_dir: str,
                  dataset: str,
                  learning_rate: float = 0.0002,
+                 d_optimizer: str = 'SGD',
+                 g_optimizer: str = 'ADAM',
                  noise_dim: int = 64,
+                 use_encoder: bool = False,
+                 encoder: str = None,
+                 e_optimizer: str = None,
                  batch_size: int = 128,
                  iterations_per_loop: int = 100,
                  num_viz_images: int = 100,
@@ -44,7 +51,8 @@ class CoreModelTPU(object):
                  tpu: str = '',
                  tpu_zone: str = None,
                  gcp_project: str = None,
-                 num_shards: int = None
+                 num_shards: int = None,
+                 ignore_params_check: bool = False
                 ):
         """Wrapper class for the model.
 
@@ -52,6 +60,12 @@ class CoreModelTPU(object):
             model_dir (str): Model directory
             data_dir (str): Data directory
             learning_rate (float, optional): Defaults to 0.0002.
+            d_optimizer (str): Optimizer to use in the discriminator. Defaults to SGD.
+            g_optimizer (str): Optimizer to use in the generator. Defaults to ADAM.
+            noise_dim (int): Size of the nose (or feature) space. Defaults to 64.
+            use_encoder (bool): Defaults to False.
+            encoder (str): Which encoder to use. 'ATTACHED' to the discriminator or 'INDEPENDENT' from it.
+            e_optimizer (str): Optimizer to use in the encoder. Defaults to ADAM.
             batch_size (int, optional): Defaults to 1024.
             iterations_per_loop (int, optional): Defaults to 500. Iteratios per loop on the estimator.
             num_viz_images (int, optional): Defaults to 100. Number of example images generated.
@@ -63,12 +77,20 @@ class CoreModelTPU(object):
             tpu_zone (str, optional): Defaults to None.
             gcp_project (str, optional): Defaults to None.
             num_shards (int, optional): Defaults to None.
+            ignore_params_check (bool): Runs without checking parameters form previous runs. Defaults to False.
         """
         self.dataset = dataset
         self.data_dir = data_dir
         if model_dir[-1] == '/':
             model_dir = model_dir[:-1]
-        self.model_dir = model_dir + '/' + self.__class__.__name__
+        self.model_dir =\
+          '{}/{}_{}{}z{}_lr{}'.format(
+                    model_dir,
+                    self.__class__.__name__,
+                    'E' if use_encoder else '',
+                    encoder[0] + '_' if use_encoder and encoder else '',
+                    noise_dim,
+                    learning_rate)
 
         self.use_tpu = use_tpu
         self.tpu = tpu
@@ -77,7 +99,18 @@ class CoreModelTPU(object):
         self.num_shards = num_shards
 
         self.learning_rate = learning_rate
+        self.g_optimizer = self.get_optimizer(g_optimizer, learning_rate)
+        self.d_optimizer = self.get_optimizer(d_optimizer, learning_rate)
         self.noise_dim = noise_dim
+
+        self.use_encoder = use_encoder
+        if encoder not in ['ATTACHED', 'INDEPENDENT']:
+            raise NameError('Encoder type not defined.')
+        self.encoder = encoder
+        self.e_optimizer = None
+        if use_encoder:
+            self.e_optimizer = self.get_optimizer(e_optimizer, learning_rate)
+
         self.batch_size = batch_size
         self.iterations_per_loop = iterations_per_loop
 
@@ -85,6 +118,92 @@ class CoreModelTPU(object):
         self.eval_loss = eval_loss
         self.train_steps_per_eval = train_steps_per_eval
         self.num_eval_images = num_eval_images
+
+        from copy import deepcopy
+        model_params = deepcopy(self.__dict__)
+        model_params['d_optimizer'] = d_optimizer
+        model_params['g_optimizer'] = g_optimizer
+        model_params['e_optimizer'] = e_optimizer
+
+        tf.logging.info('Current parameters: {}'.format(pformat(model_params)))
+
+        if ignore_params_check:
+            tf.logging.warning('--ignore_params_check is set to True. The model is ' +\
+                'not gonna check for compatibility with the previous parameters and ' +\
+                'will overwrite params.txt file if it existed already.')
+        else:
+            if tf.gfile.Exists(self.model_dir):
+                if tf.gfile.Exists(self.model_dir + '/params.txt'):
+                    tf.logging.info('Older params file exists.')
+                    with tf.gfile.GFile(self.model_dir + '/params.txt', 'rb') as f:
+                        old_params = json.loads(f.read())
+                    equal, model_params = self.equal_parms(model_params, old_params)
+                    if not equal:
+                        raise ValueError('The following parameters in params.txt differ: \n{}'.format(pformat(model_params)))
+                else:
+                    tf.logging.warning('Folder exists but without parameters. ' +\
+                    'The code is gonna run assuming the parameters were the ' +\
+                    'same (but using the ones defined on this session).')
+
+        # Save the params (or the updated version with unrelevant changes)
+        with tf.gfile.GFile(self.model_dir + '/params.txt', 'wb') as f:
+            f.write(json.dumps(model_params, indent=4, sort_keys=True))
+
+
+    def equal_parms(self, model_params, old_params):
+        """Compare the old model parameters with the newly defined ones"""
+
+        # If both are equal
+        if model_params == old_params:
+            return True, model_params
+
+        # If different this parameters should not affect the model or training outcome
+        non_relevant_data = ['use_tpu', 'tpu', 'tpu_zone', 'gcp_project', 'num_shards',
+                             'num_viz_images', 'eval_loss', 'train_steps_per_eval',
+                             'num_eval_images'] # What else should be here?
+
+        def compare(old, new):
+            old_keys = set(old.keys())
+            new_keys = set(new.keys())
+            intersect_keys = old_keys.intersection(new_keys)
+            if len(intersect_keys) != len(old_keys):
+                raise ValueError('The model parameters have different elements (options). ' +\
+                        'If this was expected run the model with the --ignore_param_check')
+            modified = {o : (old[o], new[o]) for o in intersect_keys if old[o] != new[o]}
+            return modified
+        modified = compare(old_params, model_params)
+
+        # If the changes are gonna be critical to the model
+        relevant_changes = {}
+        for elem in modified:
+            if elem not in non_relevant_data:
+                relevant_changes[elem] = ' OLD: {} --> NEW: {}'.format(old_params[elem], model_params[elem])
+        if relevant_changes:
+            return False, relevant_changes
+
+        # If there are changes but should not affect teh model
+        tf.logging.warning('There have been parameter changes but these are unrelated to the model')
+        for elem in modified:
+            model_params[elem] = ' --> '.join([old_params[elem], model_params[elem]])
+        tf.logging.warning(pformat(model_params))
+        return True, model_params
+
+    def get_optimizer(self, name, learning_rate):
+        """Create an optimizer
+
+        Available names: 'ADAM', 'SGD'
+        """
+        # TODO change learning rate for a dict with all the posible \
+        # parameters e.g. ADAM: learning rate, epsilon, beta1, beta2..
+        if name == 'ADAM':
+            return tf.train.AdamOptimizer(
+                learning_rate=learning_rate)
+        elif name == 'SGD':
+            return tf.train.GradientDescentOptimizer(
+                learning_rate=learning_rate)
+        else:
+            raise NameError('Optimizer {} not recognised'.format(name))
+
 
     def generate_model_fn(self):
         """Definition of the model function to use. It should return a model_fn

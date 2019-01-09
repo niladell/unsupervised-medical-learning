@@ -38,7 +38,10 @@ flags.DEFINE_integer('num_shards', None, 'Number of TPU chips')
 # Model specific paramenters
 flags.DEFINE_string('model_dir', '', 'Output model directory')
 flags.DEFINE_string('data_dir', '', 'Dataset directory')
-flags.DEFINE_string('dataset', 'CIFAR10', 'Which dataset to use')
+flags.DEFINE_string('model', 'BASIC',
+                    "Which model to use. Avail: 'BASIC' 'RESNET'")
+flags.DEFINE_string('dataset', 'CIFAR10',
+                    "Which dataset to use. Avail: 'CIFAR' 'CELEBA'")
 flags.DEFINE_integer('noise_dim', 64,
                      'Number of dimensions for the noise vector')
 flags.DEFINE_string('g_optimizer', 'ADAM', 'Optimizer to use for the'
@@ -77,13 +80,22 @@ if __name__ == "__main__":
     log = logging.getLogger('tensorflow')
     log.setLevel(FLAGS.log_level)
 
-    from model import BasicModel
-    if FLAGS.dataset == 'CIFAR10':
+    # Get the model and dataset # TODO there has to be a better way right?
+    if FLAGS.model.upper() == 'BASIC':
+        from model import BasicModel as Model
+    elif FLAGS.model.upper() == 'RESNET':
+        from model import ResModel as Model
+    else:
+        raise NameError('{} is not a proper model name.'.format(FLAGS.model))
+    if FLAGS.dataset.upper() == 'CIFAR10':
         from datamanager.CIFAR_input_functions import generate_input_fn
-    elif FLAGS.dataset == 'celebA':
+    elif FLAGS.dataset.upper() == 'CELEBA':
         from datamanager.celebA_input_functions import generate_input_fn
+    else:
+        raise NameError('{} is not a proper dataset name.'.format(FLAGS.dataset))
 
-    model = BasicModel(model_dir=FLAGS.model_dir, data_dir=FLAGS.data_dir, dataset=FLAGS.dataset,
+    ##### START
+    model = Model(model_dir=FLAGS.model_dir, data_dir=FLAGS.data_dir, dataset=FLAGS.dataset,
                 # Model parameters
                 learning_rate=FLAGS.learning_rate, batch_size=FLAGS.batch_size, noise_dim=FLAGS.noise_dim,
                 # Encoder

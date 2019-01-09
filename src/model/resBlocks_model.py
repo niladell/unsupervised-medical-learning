@@ -14,8 +14,8 @@ class ResModel(CoreModelTPU):
     Example definition of a model/network architecture using this template.
     """
 
-    def discriminator(self, x, is_training=True, scope='Discriminator'):
-        with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
+    def discriminator(self, x, is_training=True, scope='Discriminator', noise_dim=None):
+        with tf.variable_scope(scope, reuse=tf.AUTO_REUSE): # TODO Independent Encoder shouldn't reuse
             tf.logging.debug('Discriminator %s', self.dataset)
             tf.logging.debug('D -- Input %s', x)
 
@@ -47,6 +47,11 @@ class ResModel(CoreModelTPU):
 
             logit = tf.layers.Dense(1, name='d_fc')(x)
             tf.logging.debug(logit)
+
+            if noise_dim:
+                encode = tf.layers.Dense(units=noise_dim, name='encode')(x)
+                tf.logging.debug(encode)
+                return logit, encode
 
             return logit
 

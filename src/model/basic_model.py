@@ -39,11 +39,11 @@ class BasicModel(CoreModelTPU):
     """
 
     def discriminator(self, x, is_training=True, scope='Discriminator', noise_dim=None):
-        with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
+        with tf.variable_scope(scope, reuse=tf.AUTO_REUSE): # TODO Independent Encoder shouldn't reuse
             tf.logging.debug('Discriminator %s', self.dataset)
             tf.logging.debug('D -- Input %s', x)
 
-            df_dim = 64  #   Still not sure of this:
+            df_dim = 64  # Still not sure of this:
                          # Form carpedm20 "Dimension of gen filters in first conv layer"
 
             if self.dataset == 'celebA':

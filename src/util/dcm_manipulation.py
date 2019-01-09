@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
 # from pydicom.data import get_testdata_files
 import os
-import tensorflow as tf
 import pdb
 import numpy as np
 from sklearn.decomposition import PCA
@@ -12,15 +11,16 @@ from mpl_toolkits.mplot3d import Axes3D
 # from PIL import Image
 # import PIL
 import numpy as np
-import tensorflow as tf
 import pydicom
 import matplotlib.pyplot as plt
 import re
 # import gdcm
 from tqdm import tqdm
 import random
+import plotly
 import plotly.plotly as py
 import plotly.graph_objs as go
+plotly.tools.set_credentials_file(username='InesPereira', api_key='R4GwRqWixPIU0ICrXHeO')
 
 
 path2 = '/Users/ines/Desktop/subjects copy'
@@ -104,11 +104,8 @@ def define_colors(n):
     ret.append((r,g,b))
   return ret
 
-
+# Defining colors automatically:
 colors = define_colors(len(set(id_array)))
-# colors = np.array(colors)
-# colors = np.reshape(colors, 14*3)
-
 
 # Plotting
 fig = plt.figure(figsize = (8,8))
@@ -131,16 +128,15 @@ ax.legend(set_ids)
 ax.grid()
 plt.show()
 
-# Interactive plotting:
-# https://plot.ly/python/line-and-scatter/
-
-x, y, z = np.random.multivariate_normal(np.array([0,0,0]), np.eye(3), 200).transpose()
+# Interactive plotting with plotly:
+data_full =[]
 for iden, color in zip(set_ids, colors):
     idx = id_array == iden
     trace1 = go.Scatter3d(
         x=principalDf.loc[idx, 'principal component 1'],
         y=principalDf.loc[idx, 'principal component 2'],
         z=principalDf.loc[idx, 'principal component 3'],
+        name=iden,
         mode='markers',
         marker=dict(
             size=12,
@@ -151,22 +147,23 @@ for iden, color in zip(set_ids, colors):
             opacity=0.8
         )
     )
+    data_full.append(trace1)
 
-    data = [trace1]
-    layout = go.Layout(
-        margin=dict(
-            l=0,
-            r=0,
-            b=0,
-            t=0
-        )
+data = data_full
+layout = go.Layout(
+    margin=dict(
+        l=0,
+        r=0,
+        b=0,
+        t=0
     )
+)
 fig = go.Figure(data=data, layout=layout)
-py.iplot(fig, filename='simple-3d-scatter')
+py.iplot(fig, filename='PCA with 3 components')
 
-# https://bokeh.pydata.org/en/latest/docs/gallery/iris_splom.html
+
+# Another library for interactive plots: https://bokeh.pydata.org/en/latest/docs/gallery/iris_splom.html
 
 # Trying to reconstruct the image
 approximation = pca.inverse_transform(x_train)
-
 

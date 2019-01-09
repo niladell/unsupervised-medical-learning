@@ -18,9 +18,10 @@ def _bytes_feature(value):
 def _int64_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
 
+
 def convertToTfRecord(list_of_dcm_paths):
     for filepath in list_of_dcms:
-        filepath = list_of_dcms[9]
+        # filepath = list_of_dcms[9]
         ds = pydicom.dcmread(filepath)
         img_raw = ds.PixelData
 
@@ -40,8 +41,7 @@ def convertToTfRecord(list_of_dcm_paths):
     writer.close()
 
 if __name__ == '__main__':
-    dirname = os.path.dirname(__file__)
-    dirname = '/Users/ines/Documents/Ensino superior/Masters in NSC ETH UZH/Deep Learning/Project/unsupervised-medical-learning/src/datamanager'
-    list_of_dcms = get_list_of_dcm_path(dirname + '/list_of_dcms.txt')
+    # dirname = '/Users/ines/Documents/Ensino superior/Masters in NSC ETH UZH/Deep Learning/Project/unsupervised-medical-learning/src/datamanager'
+    list_of_dcms = get_list_of_dcm_path('./list_of_dcms.txt')
     convertToTfRecord(list_of_dcms)
     # print(list_of_dcms)

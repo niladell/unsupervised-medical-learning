@@ -425,10 +425,9 @@ class CoreModelTPU(object):
 
     def build_model(self):
         """Builds the tensorflow model"""
+        tf.logging.info('Start')
 
         model_fn = self.generate_model_fn()
-
-        tf.logging.info('Start')
         config, params = self.make_config()
 
         # TPU-based estimator used for TRAIN and EVAL
@@ -447,7 +446,6 @@ class CoreModelTPU(object):
             config=config,
             params=params,
             predict_batch_size=self.num_viz_images)
-
 
     def train(self,
               train_steps,
@@ -503,6 +501,53 @@ class CoreModelTPU(object):
                                 'generated_images', 'gen_%s.png' % (step_string)), 'w')
             img.save(file_obj, format='png')
             tf.logging.info('Finished generating images')
+
+    def set_up_encoder(self):
+        def encode_fn(features, labels, mode, params):
+            del labels    # Unconditional GAN does not use labels
+            if mode == tf.estimator.ModeKeys.PREDICT:
+                ###########
+                # PREDICT #
+                ###########
+                # Pass only noise to PREDICT mode
+                image = features['random_noise']
+                encoded_image = self.discriminator(
+                                            image, is_training=False)
+                predictions = {
+                    'encoded_images': encoded_image
+                }
+
+                return tf.contrib.tpu.TPUEstimatorSpec(mode=mode, predictions=predictions)
+
+        config, params = self.make_config()
+
+        # CPU-based estimator used for ECODE PREDICT (encoding images)
+        self.encode_est = tf.contrib.tpu.TPUEstimator(
+            model_fn=encode_fn,
+            use_tpu=False,
+            config=config,
+            params=params,
+            predict_batch_size=self.num_viz_images)
+
+
+    def encode(self, images, batch_size=1):
+        if not hasattr(self, 'encode_est'):
+            self.set_up_encoder()
+        input_fn = tf.estimator.inputs.numpy_input_fn(
+                                                        images,
+                                                        y=None,
+                                                        batch_size=batch_size,
+                                                        num_epochs=1,
+                                                        shuffle=None,
+                                                        queue_capacity=1000,
+                                                        num_threads=1
+                                                    )
+
+        encoded_images = self.encode_est.predict(input_fn)
+        clean_encoder_est = False # We may need to free up some memory
+        if clean_encoder_est:
+            del self.encode_est
+        return encoded_images
 
 
     def save_samples_from_data(self, generate_input_fn):

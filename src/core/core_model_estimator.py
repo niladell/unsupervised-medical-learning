@@ -146,8 +146,8 @@ class CoreModelTPU(object):
                     'same (but using the ones defined on this session).')
 
         # Save the params (or the updated version with unrelevant changes)
-        with tf.gfile.GFile(self.model_dir + '/params.txt', 'wb') as f:
-            f.write(json.dumps(model_params, indent=4, sort_keys=True))
+        # with tf.gfile.GFile(self.model_dir + '/params.txt', 'wb') as f:
+        #     f.write(json.dumps(model_params, indent=4, sort_keys=True))
 
 
     def equal_parms(self, model_params, old_params):
@@ -526,13 +526,16 @@ class CoreModelTPU(object):
 
         sample_images = data_sampler.predict(input_fn=generate_input_fn('TRAIN'))
         tf.logging.info('That ran')
-        images = []
-        for i in range(self.num_viz_images ):
-            images.append(next(sample_images))
+        if self.num_viz_images < 100:
+            tiled_image = next(sample_images)
+        else:
+            images = []
+            for i in range(self.num_viz_images ):
+                images.append(next(sample_images))
 
-        image_rows = [np.concatenate(images[i:i+10], axis=0)
-                    for i in range(0, self.num_viz_images , 10)]
-        tiled_image = np.concatenate(image_rows, axis=1)
+            image_rows = [np.concatenate(images[i:i+10], axis=0)
+                        for i in range(0, self.num_viz_images , 10)]
+            tiled_image = np.concatenate(image_rows, axis=1)
         img = convert_array_to_image(tiled_image)
 
         file_obj = tf.gfile.Open(

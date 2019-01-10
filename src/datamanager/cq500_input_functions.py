@@ -42,15 +42,13 @@ def input_fn(params):
             })
 
         # Decode the raw bytes so it becomes a tensor with type.
-        image = tf.decode_raw(features["image_raw"], tf.uint8)
+        image = tf.decode_raw(features["image_raw"], tf.float32)
 
         # Hard-code the shape
         image.set_shape([CHANNELS * HEIGHT * WIDTH])
 
         # The type is now uint8 but we need it to be float.
-        image = tf.cast(
-                    tf.reshape(image, [HEIGHT, WIDTH, CHANNELS]),
-                tf.float32) * (2. / 255) - 1
+        image = tf.reshape(image, [HEIGHT, WIDTH, CHANNELS]) * 2 - 1
 
         random_noise = tf.random_normal([noise_dim])
 
@@ -64,8 +62,12 @@ def input_fn(params):
     image_files = [os.path.join(data_dir, 'train.tfrecords')]
     tf.logging.info(image_files)
     dataset = tf.data.TFRecordDataset([image_files])
-    dataset = dataset.map(parser, num_parallel_calls=batch_size)
-    dataset = dataset.prefetch(4 * batch_size).cache().repeat()
+    dataset = dataset.map(parser, num_parallel_calls=batch_size) # find a function to be able to use it with many files.
+    # https://www.tensorflow.org/guide/performance/datasets: If your data can fit into memory, use the cache
+    # transformation to cache it in memory during the first epoch, so that subsequent epochs can avoid the
+    # overhead associated with reading, parsing, and transforming it.
+    # dataset = dataset.prefetch(4 * batch_size).cache().repeat()
+    dataset = dataset.prefetch(4 * batch_size).repeat()
     if USE_ALTERNATIVE:
         dataset = dataset.apply(
             tf.contrib.data.batch_and_drop_remainder(batch_size))
@@ -78,16 +80,13 @@ def input_fn(params):
     tf.logging.debug('Input_fn: Features %s, Labels %s', features, labels)
     return features, labels
 
+
     # Nil's original code, for comparison:
     # image_files = [os.path.join(data_dir, 'train.tfrecords')]
     # tf.logging.info(image_files)
     # dataset = tf.data.TFRecordDataset([image_files])
-    # dataset = dataset.map(parser, num_parallel_calls=batch_size) # find a function to be able to use it with many files.
-    # # https://www.tensorflow.org/guide/performance/datasets: If your data can fit into memory, use the cache
-    # # transformation to cache it in memory during the first epoch, so that subsequent epochs can avoid the
-    # # overhead associated with reading, parsing, and transforming it.
-    # # dataset = dataset.prefetch(4 * batch_size).cache().repeat()
-    # dataset = dataset.prefetch(4 * batch_size).repeat()
+    # dataset = dataset.map(parser, num_parallel_calls=batch_size)
+    # dataset = dataset.prefetch(4 * batch_size).cache().repeat()
     # if USE_ALTERNATIVE:
     #     dataset = dataset.apply(
     #         tf.contrib.data.batch_and_drop_remainder(batch_size))
@@ -99,6 +98,8 @@ def input_fn(params):
     # features, labels = dataset.make_one_shot_iterator().get_next()
     # tf.logging.debug('Input_fn: Features %s, Labels %s', features, labels)
     # return features, labels
+
+
 
 
 def noise_input_fn(params):

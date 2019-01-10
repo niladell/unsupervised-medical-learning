@@ -94,6 +94,8 @@ if __name__ == "__main__":
     else:
         raise NameError('{} is not a proper dataset name.'.format(FLAGS.dataset))
 
+    from datamanager.cq500_input_functions import generate_input_fn
+
     ##### START
     model = Model(model_dir=FLAGS.model_dir, data_dir=FLAGS.data_dir, dataset=FLAGS.dataset,
                 # Model parameters
@@ -112,6 +114,6 @@ if __name__ == "__main__":
                 gcp_project=FLAGS.gcp_project, num_shards=FLAGS.num_shards)
 
     model.save_samples_from_data(generate_input_fn)
-    model.build_model()
-    model.train(FLAGS.train_steps, generate_input_fn)
-    tf.logging.info('Finished!')
+    # model.build_model()
+    # model.train(FLAGS.train_steps, generate_input_fn)
+    # tf.logging.info('Finished!')

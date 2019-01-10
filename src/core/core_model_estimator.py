@@ -505,19 +505,19 @@ class CoreModelTPU(object):
     def set_up_encoder(self):
         def encode_fn(features, labels, mode, params):
             del labels    # Unconditional GAN does not use labels
-            if mode == tf.estimator.ModeKeys.PREDICT:
+            # if mode == tf.estimator.ModeKeys.PREDICT:
                 ###########
                 # PREDICT #
                 ###########
-                # Pass only noise to PREDICT mode
-                image = features['random_noise']
-                encoded_image = self.discriminator(
-                                            image, is_training=False)
-                predictions = {
-                    'encoded_images': encoded_image
-                }
+            # Pass only noise to PREDICT mode
+            image = features
+            _, encoded_image = self.discriminator(
+                                        image, is_training=False, noise_dim=self.noise_dim)
+            # predictions = {
+            #     'encoded_images': encoded_image
+            # }
 
-                return tf.contrib.tpu.TPUEstimatorSpec(mode=mode, predictions=predictions)
+            return tf.contrib.tpu.TPUEstimatorSpec(mode=mode, predictions=encoded_image)
 
         config, params = self.make_config()
 
@@ -527,25 +527,38 @@ class CoreModelTPU(object):
             use_tpu=False,
             config=config,
             params=params,
-            predict_batch_size=self.num_viz_images)
+            predict_batch_size=1)
 
 
-    def encode(self, images, batch_size=1):
+    def encode(self, images, batch_size=1, clean_encoder_est=False):
+        if len(images.shape) < 4:
+            images = np.expand_dims(images, axis=0)
+        if type(images[0,0,0,0]) == np.uint8:
+            images = (2 * (images / 255.0) - 1).astype(np.float32)
+        print('\n\n')
+        print(images.shape)
         if not hasattr(self, 'encode_est'):
             self.set_up_encoder()
-        input_fn = tf.estimator.inputs.numpy_input_fn(
-                                                        images,
-                                                        y=None,
-                                                        batch_size=batch_size,
-                                                        num_epochs=1,
-                                                        shuffle=None,
-                                                        queue_capacity=1000,
-                                                        num_threads=1
-                                                    )
+        def input_fn(params):
+            del params
+            dataset = tf.data.Dataset.from_tensor_slices((images, [[]]))
+            dataset = dataset.batch(batch_size)
+            features, labels = dataset.make_one_shot_iterator().get_next()
+            return features, labels
+        config, params = self.make_config()
 
-        encoded_images = self.encode_est.predict(input_fn)
-        clean_encoder_est = False # We may need to free up some memory
-        if clean_encoder_est:
+        data_sampler = tf.contrib.tpu.TPUEstimator(
+            model_fn=lambda features, labels, mode, params: tpu.TPUEstimatorSpec(mode=mode, predictions=features),
+            use_tpu=False,
+            config=config,
+            params=params,
+            predict_batch_size=self.num_viz_images )
+        # sample_images = next(data_sampler.predict(input_fn=input_fn)
+        # print(sample_images, sample_images.shape)
+        # print(next(self.encode_est.predict(input_fn=input_fn)))
+        # exit()
+        encoded_images = [z for z in self.encode_est.predict(input_fn=input_fn)]
+        if clean_encoder_est: #? May we need to free up some memory?
             del self.encode_est
         return encoded_images
 

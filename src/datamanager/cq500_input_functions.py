@@ -13,7 +13,7 @@ except ImportError:
 
 HEIGHT = 512
 WIDTH = 512
-CHANNELS = 3
+CHANNELS = 1
 
 
 
@@ -22,7 +22,7 @@ CHANNELS = 3
 ###############################################
 
 def input_fn(params):
-    """Read CIFAR input data from a TFRecord dataset.
+    """Read CQ500 input data from a TFRecord dataset.
 
     Function taken from tensorflow/tpu cifar_keras repo"""
     batch_size = params['batch_size']
@@ -36,7 +36,7 @@ def input_fn(params):
             features={
                 "height": tf.FixedLenFeature([], tf.int64),
                 "width": tf.FixedLenFeature([], tf.int64),
-                "image": tf.FixedLenFeature([], tf.string),
+                "image_raw": tf.FixedLenFeature([], tf.string),
             })
         image = tf.decode_raw(features["image"], tf.uint8)
         image.set_shape([CHANNELS * HEIGHT * WIDTH])
@@ -55,7 +55,7 @@ def input_fn(params):
     image_files = [os.path.join(data_dir, 'train.tfrecords')]
     tf.logging.info(image_files)
     dataset = tf.data.TFRecordDataset([image_files])
-    dataset = dataset.map(parser, num_parallel_calls=batch_size)
+    dataset = dataset.map(parser, num_parallel_calls=batch_size) # find a function to be able to use it with many files.
     dataset = dataset.prefetch(4 * batch_size).cache().repeat()
     if USE_ALTERNATIVE:
         dataset = dataset.apply(
@@ -104,4 +104,14 @@ def generate_input_fn(mode='TRAIN'):
     else:
         raise ValueError('Incorrect mode provided')
 
+filename = 'CT_head_trauma_unzipped_CQ500CT0 CQ500CT0_Unknown Study_CT PLAIN THIN_CT000000.dcm.tfrecords'
+reader = tf.TFRecordReader()
+reader = tf.data.TFRecordDataset()
+reader.read(filename)
+
+x = tf.constant("This is string")
+x = tf.decode_raw(x, tf.uint8)
+y = x[:4]
+sess = tf.InteractiveSession()
+print(y.eval())
 

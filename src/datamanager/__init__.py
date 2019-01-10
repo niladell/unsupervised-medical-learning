@@ -1,10 +1,8 @@
-"""Set of core packages"""
+"""Set of modules related to the input pipeline"""
 
-from .CIFAR_manager import CIFAR10
 # from .CIFAR_input_functions import generate_input_fn
 # from .celebA_input_functions import generate_input_fn
 
-__all__ = (
-    'CIFAR10'
+# __all__ = (
      # 'generate_input_fn'
-)
+# )

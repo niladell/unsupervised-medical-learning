@@ -146,8 +146,8 @@ class CoreModelTPU(object):
                     'same (but using the ones defined on this session).')
 
         # Save the params (or the updated version with unrelevant changes)
-        # with tf.gfile.GFile(self.model_dir + '/params.txt', 'wb') as f:
-        #     f.write(json.dumps(model_params, indent=4, sort_keys=True))
+        with tf.gfile.GFile(self.model_dir + '/params.txt', 'wb') as f:
+            f.write(json.dumps(model_params, indent=4, sort_keys=True))
 
 
     def equal_parms(self, model_params, old_params):
@@ -384,8 +384,8 @@ class CoreModelTPU(object):
                 # EVAL #
                 ########
                 def _eval_metric_fn(d_loss, g_loss):
-                # When using TPUs, this function is run on a different machine than the
-                # rest of the model_fn and should not capture any Tensors defined there
+                    # When using TPUs, this function is run on a different machine than the
+                    # rest of the model_fn and should not capture any Tensors defined there
                     return {
                         'discriminator_loss': tf.metrics.mean(d_loss),
                         'generator_loss': tf.metrics.mean(g_loss)

@@ -184,7 +184,7 @@ class CoreModelTPU(object):
         # If there are changes but should not affect teh model
         tf.logging.warning('There have been parameter changes but these are unrelated to the model')
         for elem in modified:
-            model_params[elem] = ' --> '.join([old_params[elem], model_params[elem]])
+            model_params[elem] = ' --> '.join([str(old_params[elem]), str(model_params[elem])])
         tf.logging.warning(pformat(model_params))
         return True, model_params
 
@@ -384,8 +384,8 @@ class CoreModelTPU(object):
                 # EVAL #
                 ########
                 def _eval_metric_fn(d_loss, g_loss):
-                # When using TPUs, this function is run on a different machine than the
-                # rest of the model_fn and should not capture any Tensors defined there
+                    # When using TPUs, this function is run on a different machine than the
+                    # rest of the model_fn and should not capture any Tensors defined there
                     return {
                         'discriminator_loss': tf.metrics.mean(d_loss),
                         'generator_loss': tf.metrics.mean(g_loss)
@@ -430,22 +430,16 @@ class CoreModelTPU(object):
         model_fn = self.generate_model_fn()
         config, params = self.make_config()
 
-        # TPU-based estimator used for TRAIN and EVAL
+        # TPU-based estimator used for TRAIN, EVAL and PREDICT
         self.est = tf.contrib.tpu.TPUEstimator(
             model_fn=model_fn,
             use_tpu=self.use_tpu,
             config=config,
             params=params,
             train_batch_size=self.batch_size,
-            eval_batch_size=self.batch_size)
-
-        # CPU-based estimator used for PREDICT (generating images)
-        self.cpu_est = tf.contrib.tpu.TPUEstimator(
-            model_fn=model_fn,
-            use_tpu=False,
-            config=config,
-            params=params,
-            predict_batch_size=self.num_viz_images)
+            eval_batch_size=self.batch_size,
+            predict_batch_size=min(self.batch_size, self.num_viz_images)
+        )
 
     def train(self,
               train_steps,
@@ -480,22 +474,35 @@ class CoreModelTPU(object):
                 tf.logging.info('Finished evaluating')
                 tf.logging.info(metrics)
 
+            self.generate_images(generate_input_fn, current_step)
+
+    def generate_images(self, generate_input_fn, image_name):
+            tf.logging.info('Start generating images')
             # Render some generated images
-            generated_iter = self.cpu_est.predict(input_fn=generate_input_fn('PREDICT'))
-            images = [p['generated_images'][:, :, :] for p in generated_iter]
+            rounds_gen_imgs = max(int(np.ceil(self.num_viz_images / self.batch_size)), 1)
+            tf.logging.debug('Gonna generate images in %s rounds', rounds_gen_imgs)
+            images = []
+            for i in range(rounds_gen_imgs):
+                tf.logging.debug('Predict round %s/%s', i, rounds_gen_imgs)
+                generated_iter = self.est.predict(input_fn=generate_input_fn('PREDICT'))
+                images += [p['generated_images'][:, :, :] for p in generated_iter]
             if len(images) != self.num_viz_images :
-                tf.logging.info('Made %s images (when it should have been %s',
+                tf.logging.warning('Made %s images (when it should have been %s)',
                     len(images), self.num_viz_images )
                 images = images[:self.num_viz_images ]
+            tf.logging.debug('Genreated %s %s images', len(images), image[0].shape)
 
-            # assert len(images) == self.num_viz_images
-            image_rows = [np.concatenate(images[i:i+10], axis=0)
-                            for i in range(0, self.num_viz_images , 10)]
-            tiled_image = np.concatenate(image_rows, axis=1)
+            # TODO This is a cheap fix, need to change it to a more dynamic thign
+            if self.num_viz_images < 100:
+                tiled_image = images[0]
+            else:
+                image_rows = [np.concatenate(images[i:i+10], axis=0)
+                                for i in range(0, self.num_viz_images , 10)]
+                tiled_image = np.concatenate(image_rows, axis=1)
 
             img = convert_array_to_image(tiled_image)
 
-            step_string = str(current_step).zfill(5)
+            step_string = str(image_name).zfill(6)
             file_obj = tf.gfile.Open(
                 os.path.join(self.model_dir,
                                 'generated_images', 'gen_%s.png' % (step_string)), 'w')
@@ -601,13 +608,16 @@ class CoreModelTPU(object):
 
         sample_images = data_sampler.predict(input_fn=generate_input_fn('TRAIN'))
         tf.logging.info('That ran')
-        images = []
-        for i in range(self.num_viz_images ):
-            images.append(next(sample_images))
+        if self.num_viz_images < 100:
+            tiled_image = next(sample_images)
+        else:
+            images = []
+            for i in range(self.num_viz_images ):
+                images.append(next(sample_images))
 
-        image_rows = [np.concatenate(images[i:i+10], axis=0)
-                    for i in range(0, self.num_viz_images , 10)]
-        tiled_image = np.concatenate(image_rows, axis=1)
+            image_rows = [np.concatenate(images[i:i+10], axis=0)
+                        for i in range(0, self.num_viz_images , 10)]
+            tiled_image = np.concatenate(image_rows, axis=1)
         img = convert_array_to_image(tiled_image)
 
         file_obj = tf.gfile.Open(

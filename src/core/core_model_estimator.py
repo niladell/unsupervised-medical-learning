@@ -27,6 +27,7 @@ layers = tf.contrib.layers
 ds = tf.contrib.distributions
 framework = tf.contrib.framework
 
+NUMBER_REPLICAS = 8  # TPU Replicas
 
 class CoreModelTPU(object):
 
@@ -430,6 +431,11 @@ class CoreModelTPU(object):
         model_fn = self.generate_model_fn()
         config, params = self.make_config()
 
+        # Batch needs to be multiple of number of replicas
+        mod_num_viz_imgages = self.num_viz_images % NUMBER_REPLICAS
+        pred_batch = self.num_viz_images + mod_num_viz_imgages
+        pred_natch = min(self.batch_size, pred_batch)
+
         # TPU-based estimator used for TRAIN, EVAL and PREDICT
         self.est = tf.contrib.tpu.TPUEstimator(
             model_fn=model_fn,
@@ -438,7 +444,7 @@ class CoreModelTPU(object):
             params=params,
             train_batch_size=self.batch_size,
             eval_batch_size=self.batch_size,
-            predict_batch_size=min(self.batch_size, self.num_viz_images)
+            predict_batch_size=pred_batch
         )
 
     def train(self,
@@ -569,18 +575,7 @@ class CoreModelTPU(object):
             dataset = dataset.batch(batch_size)
             features, labels = dataset.make_one_shot_iterator().get_next()
             return features, labels
-        config, params = self.make_config()
 
-        data_sampler = tf.contrib.tpu.TPUEstimator(
-            model_fn=lambda features, labels, mode, params: tpu.TPUEstimatorSpec(mode=mode, predictions=features),
-            use_tpu=False,
-            config=config,
-            params=params,
-            predict_batch_size=self.num_viz_images )
-        # sample_images = next(data_sampler.predict(input_fn=input_fn)
-        # print(sample_images, sample_images.shape)
-        # print(next(self.encode_est.predict(input_fn=input_fn)))
-        # exit()
         encoded_images = [z for z in self.encode_est.predict(input_fn=input_fn)]
         if clean_encoder_est: #? May we need to free up some memory?
             del self.encode_est

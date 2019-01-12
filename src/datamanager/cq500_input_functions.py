@@ -119,11 +119,13 @@ def noise_input_fn(params):
     noise_dim = params['noise_dim']
     # Use constant seed to obtain same noise
     np.random.seed(0)
-    noise_dataset = tf.data.Dataset.from_tensors(tf.constant(
-        np.random.randn(batch_size, noise_dim), dtype=tf.float32))
+    noise_dataset = tf.data.Dataset.from_tensors(
+        {'random_noise': tf.constant(
+            np.random.randn(batch_size, noise_dim), dtype=tf.float32)
+        })
     noise = noise_dataset.make_one_shot_iterator().get_next()
     tf.logging.debug('Noise input %s', noise)
-    return {'random_noise': noise}, None
+    return noise_dataset
 
 
 def generate_input_fn(mode='TRAIN'):

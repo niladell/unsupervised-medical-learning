@@ -112,26 +112,21 @@ if __name__ == "__main__":
                 gcp_project=FLAGS.gcp_project, num_shards=FLAGS.num_shards)
 
     model.save_samples_from_data(generate_input_fn)
-    # model.build_model()
-    # model.train(FLAGS.train_steps, generate_input_fn)
+    model.build_model()
+    model.train(FLAGS.train_steps, generate_input_fn)
     tf.logging.info('Finished training.')
 
-    import scipy
-    def center_crop( im,
-                    output_height,
-                    output_width ):
-        h, w = im.shape[:2]
-        if h < output_height and w < output_width:
-            raise ValueError("image is small")
 
-        offset_h = int((h - output_height) / 2)
-        offset_w = int((w - output_width) / 2)
-        return im[offset_h:offset_h+output_height,
-                    offset_w:offset_w+output_width, :]
-    import os
-    print(os.path.dirname(os.path.realpath(__file__)))
-    im = scipy.misc.imread('src/img.jpg')
-    im = center_crop(im, 64, 64)
 
-    encoded_img = model.encode(im)
-    print('\n\n Encoded img: \n{}'.format(encoded_img))
+    # Bit of script to run the encoding on a test image
+    # TODO create proper file to analyze images
+    encode_test_img = False
+    if encode_test_img:
+        from scipy.misc import imread
+        from util.image_preprocessing import center_crop
+
+        im = imread('others/img.jpg')
+        im = center_crop(im, 64, 64)
+
+        encoded_img = model.encode(im)
+        print('\n\n Encoded img: \n{}'.format(encoded_img))

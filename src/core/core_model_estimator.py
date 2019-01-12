@@ -184,7 +184,7 @@ class CoreModelTPU(object):
         # If there are changes but should not affect teh model
         tf.logging.warning('There have been parameter changes but these are unrelated to the model')
         for elem in modified:
-            model_params[elem] = ' --> '.join([old_params[elem], model_params[elem]])
+            model_params[elem] = ' --> '.join([str(old_params[elem]), str(model_params[elem])])
         tf.logging.warning(pformat(model_params))
         return True, model_params
 

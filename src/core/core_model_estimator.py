@@ -502,21 +502,19 @@ class CoreModelTPU(object):
             img.save(file_obj, format='png')
             tf.logging.info('Finished generating images')
 
-    def set_up_encoder(self):
+    def set_up_encoder(self, batch_size):
+        """ Creates the TF Estimator for the encoder predictions.
+
+        Args:
+            batch_size (int)
+        """
+
         def encode_fn(features, labels, mode, params):
             del labels    # Unconditional GAN does not use labels
-            # if mode == tf.estimator.ModeKeys.PREDICT:
-                ###########
-                # PREDICT #
-                ###########
-            # Pass only noise to PREDICT mode
+            # Pass images to be encoded
             image = features
             _, encoded_image = self.discriminator(
                                         image, is_training=False, noise_dim=self.noise_dim)
-            # predictions = {
-            #     'encoded_images': encoded_image
-            # }
-
             return tf.contrib.tpu.TPUEstimatorSpec(mode=mode, predictions=encoded_image)
 
         config, params = self.make_config()
@@ -527,18 +525,37 @@ class CoreModelTPU(object):
             use_tpu=False,
             config=config,
             params=params,
-            predict_batch_size=1)
+            predict_batch_size=batch_size)
 
 
     def encode(self, images, batch_size=1, clean_encoder_est=False):
+        """ Encode an image to the Z-space using the model encoder
+
+        Args:
+            images (np.array): Image(s) to encode use formats "NHWC",
+                "HWC" (single image) or "HW" (single image)
+            batch_size (int, optional): Defaults to 1.
+            clean_encoder_est (bool, optional): Defaults to False. Resets the
+                encoder Estimator at the begining of this function and deletes
+                it at the end of it.
+
+        Returns:
+            Encoded images
+        """
+        # If the input is a single image we create a dimension for the batch
         if len(images.shape) < 4:
             images = np.expand_dims(images, axis=0)
+        # If the input was a 2D matrix we expand to a single channel
+        if len(images.shape) < 4:
+            images = np.expand_dims(images, axis=3)
+        assert len(images.shape) == 4
+
+        # TODO I don't know if cheking the first image is enough
         if type(images[0,0,0,0]) == np.uint8:
             images = (2 * (images / 255.0) - 1).astype(np.float32)
-        print('\n\n')
-        print(images.shape)
-        if not hasattr(self, 'encode_est'):
-            self.set_up_encoder()
+
+        if not hasattr(self, 'encode_est') or clean_encoder_est:
+            self.set_up_encoder(batch_size)
         def input_fn(params):
             del params
             dataset = tf.data.Dataset.from_tensor_slices((images, [[]]))

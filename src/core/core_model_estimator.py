@@ -490,7 +490,7 @@ class CoreModelTPU(object):
                 tf.logging.warning('Made %s images (when it should have been %s)',
                     len(images), self.num_viz_images )
                 images = images[:self.num_viz_images ]
-            tf.logging.debug('Genreated %s %s images', len(images), image[0].shape)
+            tf.logging.debug('Genreated %s %s images', len(images), images[0].shape)
 
             # TODO This is a cheap fix, need to change it to a more dynamic thign
             if self.num_viz_images < 100:

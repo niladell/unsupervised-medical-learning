@@ -27,6 +27,7 @@ layers = tf.contrib.layers
 ds = tf.contrib.distributions
 framework = tf.contrib.framework
 
+NUMBER_REPLICAS = 8  # TPU Replicas
 
 class CoreModelTPU(object):
 
@@ -34,49 +35,51 @@ class CoreModelTPU(object):
                  model_dir: str,
                  data_dir: str,
                  dataset: str,
-                 learning_rate: float = 0.0002,
-                 d_optimizer: str = 'SGD',
-                 g_optimizer: str = 'ADAM',
-                 noise_dim: int = 64,
-                 use_encoder: bool = False,
-                 encoder: str = None,
-                 e_optimizer: str = None,
-                 batch_size: int = 128,
-                 iterations_per_loop: int = 100,
-                 num_viz_images: int = 100,
-                 eval_loss: bool = False,
-                 train_steps_per_eval: int = 100,
-                 num_eval_images: int = 100,
-                 use_tpu: str = False,
-                 tpu: str = '',
-                 tpu_zone: str = None,
-                 gcp_project: str = None,
-                 num_shards: int = None,
-                 ignore_params_check: bool = False
+                 learning_rate: float,
+                 d_optimizer: str,
+                 g_optimizer: str,
+                 noise_dim: int,
+                 use_encoder: bool,
+                 encoder: str,
+                 e_optimizer: str,
+                 batch_size: int,
+                 soft_label_strength: float,
+                 iterations_per_loop: int,
+                 num_viz_images: int,
+                 eval_loss: bool,
+                 train_steps_per_eval: int,
+                 num_eval_images: int,
+                 use_tpu: str,
+                 tpu: str,
+                 tpu_zone: str,
+                 gcp_project: str,
+                 num_shards: int,
+                 ignore_params_check: bool,
                 ):
         """Wrapper class for the model.
 
         Args:
             model_dir (str): Model directory
             data_dir (str): Data directory
-            learning_rate (float, optional): Defaults to 0.0002.
+            learning_rate (float): Defaults to 0.0002.
             d_optimizer (str): Optimizer to use in the discriminator. Defaults to SGD.
             g_optimizer (str): Optimizer to use in the generator. Defaults to ADAM.
             noise_dim (int): Size of the nose (or feature) space. Defaults to 64.
-            use_encoder (bool): Defaults to False.
+            use_encoder (bool)
             encoder (str): Which encoder to use. 'ATTACHED' to the discriminator or 'INDEPENDENT' from it.
             e_optimizer (str): Optimizer to use in the encoder. Defaults to ADAM.
-            batch_size (int, optional): Defaults to 1024.
-            iterations_per_loop (int, optional): Defaults to 500. Iteratios per loop on the estimator.
-            num_viz_images (int, optional): Defaults to 100. Number of example images generated.
-            eval_loss (bool, optional): Defaults to False.
-            train_steps_per_eval (int, optional): Defaults to 100.
-            num_eval_images (int, optional): Defaults to 100. Number of eval samples.
-            use_tpu (str, optional): Defaults to False.
-            tpu (str, optional): Defaults to ''. TPU to use.
-            tpu_zone (str, optional): Defaults to None.
-            gcp_project (str, optional): Defaults to None.
-            num_shards (int, optional): Defaults to None.
+            batch_size (int): Defaults to 1024.
+            soft_label_strength (float). Value of the perturbation on soft labels (0 is same as hard labels).
+            iterations_per_loop (int): Defaults to 500. Iteratios per loop on the estimator.
+            num_viz_images (int): Defaults to 100. Number of example images generated.
+            eval_loss (bool)
+            train_steps_per_eval (int): Defaults to 100.
+            num_eval_images (int): Defaults to 100. Number of eval samples.
+            use_tpu (str)
+            tpu (str): Defaults to ''. TPU to use.
+            tpu_zone (str): Defaults to None.
+            gcp_project (str): Defaults to None.
+            num_shards (int): Defaults to None.
             ignore_params_check (bool): Runs without checking parameters form previous runs. Defaults to False.
         """
         self.dataset = dataset
@@ -84,12 +87,15 @@ class CoreModelTPU(object):
         if model_dir[-1] == '/':
             model_dir = model_dir[:-1]
         self.model_dir =\
-          '{}/{}_{}{}z{}_lr{}'.format(
+          '{}/{}_{}{}z{}_{}{}{}_lr{}'.format(
                     model_dir,
                     self.__class__.__name__,
                     'E' if use_encoder else '',
-                    encoder[0] + '_' if use_encoder and encoder else '',
+                    encoder[0] + '_' if use_encoder and encoder else '', # A bit of a stupid option
                     noise_dim,
+                    d_optimizer[0],
+                    g_optimizer[0],
+                    e_optimizer[0] if e_optimizer else '', # TODO a bit of a mess with the encoder options
                     learning_rate)
 
         self.use_tpu = use_tpu
@@ -102,6 +108,8 @@ class CoreModelTPU(object):
         self.g_optimizer = self.get_optimizer(g_optimizer, learning_rate)
         self.d_optimizer = self.get_optimizer(d_optimizer, learning_rate)
         self.noise_dim = noise_dim
+
+        self.soft_label_strength = soft_label_strength
 
         self.use_encoder = use_encoder
         if encoder not in ['ATTACHED', 'INDEPENDENT']:
@@ -160,7 +168,7 @@ class CoreModelTPU(object):
         # If different this parameters should not affect the model or training outcome
         non_relevant_data = ['use_tpu', 'tpu', 'tpu_zone', 'gcp_project', 'num_shards',
                              'num_viz_images', 'eval_loss', 'train_steps_per_eval',
-                             'num_eval_images'] # What else should be here?
+                             'num_eval_images', 'batch_size'] # What else should be here?
 
         def compare(old, new):
             old_keys = set(old.keys())
@@ -184,7 +192,7 @@ class CoreModelTPU(object):
         # If there are changes but should not affect teh model
         tf.logging.warning('There have been parameter changes but these are unrelated to the model')
         for elem in modified:
-            model_params[elem] = ' --> '.join([old_params[elem], model_params[elem]])
+            model_params[elem] = ' --> '.join([str(old_params[elem]), str(model_params[elem])])
         tf.logging.warning(pformat(model_params))
         return True, model_params
 
@@ -286,15 +294,24 @@ class CoreModelTPU(object):
             true_label_g = tf.ones_like(d_on_g_logits)
 
             # Soften the labels (ganTricks)
-            fuzzyness = 0.2
-            if fuzzyness != 0:
+            if self.soft_label_strength != 0:
                 true_label += tf.random_uniform(true_label.shape,
-                                            minval=-fuzzyness, maxval=fuzzyness)
-                fake_label += tf.random_uniform(fake_label.shape,
-                                            minval=-fuzzyness, maxval=fuzzyness)
-                true_label_g += tf.random_uniform(true_label_g.shape,
-                                            minval=-fuzzyness, maxval=fuzzyness)
+                                            minval=-self.soft_label_strength,
+                                            maxval=self.soft_label_strength)
+                true_label = tf.clip_by_value(
+                                        true_label, 0, 1)
 
+                fake_label += tf.random_uniform(fake_label.shape,
+                                            minval=-self.soft_label_strength,
+                                            maxval=self.soft_label_strength)
+                fake_label = tf.clip_by_value(
+                                        fake_label, 0, 1)
+
+                true_label_g += tf.random_uniform(true_label_g.shape,
+                                            minval=-self.soft_label_strength,
+                                            maxval=self.soft_label_strength)
+                true_label_g = tf.clip_by_value(
+                                        true_label_g, 0, 1)
 
             # Calculate discriminator loss
             d_loss_on_data = tf.nn.sigmoid_cross_entropy_with_logits(
@@ -319,8 +336,10 @@ class CoreModelTPU(object):
                                                             noise_dim=noise_dim)
                 e_loss = tf.losses.mean_squared_error(
                     labels=random_noise,
-                    predictions=g_logits_encoded)
-
+                    predictions=g_logits_encoded,
+                    reduction=tf.losses.Reduction.NONE)
+                e_loss = tf.reduce_mean(e_loss, axis=1)
+                tf.logging.debug('In e_loss %s %s', random_noise, g_logits_encoded)
 
             if mode == tf.estimator.ModeKeys.TRAIN:
                 #########
@@ -335,6 +354,10 @@ class CoreModelTPU(object):
                 if self.use_encoder and e_loss_on_g:
                     g_loss = g_loss + e_loss
                 g_loss = tf.reduce_mean(g_loss)
+
+                if self.use_encoder:
+                    e_loss = tf.reduce_mean(e_loss)
+
                 # ? TODO is this the best way to deal with the optimziers?
                 # d_optimizer = tf.train.GradientDescentOptimizer(
                 #     learning_rate=self.learning_rate)
@@ -383,18 +406,37 @@ class CoreModelTPU(object):
                 ########
                 # EVAL #
                 ########
-                def _eval_metric_fn(d_loss, g_loss):
-                # When using TPUs, this function is run on a different machine than the
-                # rest of the model_fn and should not capture any Tensors defined there
-                    return {
+                def _eval_metric_fn(d_loss, g_loss, e_loss, d_on_data, d_on_g):
+                    # When using TPUs, this function is run on a different machine than the
+                    # rest of the model_fn and should not capture any Tensors defined there
+
+                    predictions = tf.concat(axis=0, values=[d_on_data, d_on_g])
+                    labels = tf.concat(axis=0,
+                            values=[tf.ones_like(d_on_data), tf.zeros_like(d_on_g)])
+
+                    metrics = {
                         'discriminator_loss': tf.metrics.mean(d_loss),
-                        'generator_loss': tf.metrics.mean(g_loss)
+                        'generator_loss': tf.metrics.mean(g_loss),
+                        'discriminator_accuracy': tf.metrics.accuracy(
+                                                    labels=labels, predictions=predictions)
                         }
+                    if self.use_encoder:
+                        metrics['encoder_loss'] = tf.metrics.mean(e_loss)
+
+                    return metrics
+                if not self.use_encoder:
+                    e_loss = None # TODO Quick fix, this is a bit messy, needa refactor
+                tf.logging.debug('E loss %s', e_loss)
+                tf.logging.debug('D loss %s', d_loss)
+                tf.logging.debug('G loss %s', g_loss)
+
+                d_on_data = tf.sigmoid(d_on_data_logits)
+                d_on_g = tf.sigmoid(d_on_g_logits)
 
                 return tf.contrib.tpu.TPUEstimatorSpec(
                     mode=mode,
                     loss=tf.reduce_mean(g_loss),
-                    eval_metrics=(_eval_metric_fn, [d_loss, g_loss]))
+                    eval_metrics=(_eval_metric_fn, [d_loss, g_loss, e_loss, d_on_data, d_on_g]))
 
             # Should never reach here
             raise ValueError('Invalid mode provided to model_fn')
@@ -425,29 +467,26 @@ class CoreModelTPU(object):
 
     def build_model(self):
         """Builds the tensorflow model"""
+        tf.logging.info('Start')
 
         model_fn = self.generate_model_fn()
-
-        tf.logging.info('Start')
         config, params = self.make_config()
 
-        # TPU-based estimator used for TRAIN and EVAL
+        # Batch needs to be multiple of number of replicas
+        mod_num_viz_imgages = self.num_viz_images % NUMBER_REPLICAS
+        pred_batch = self.num_viz_images + mod_num_viz_imgages
+        pred_batch = min(self.batch_size, pred_batch)
+
+        # TPU-based estimator used for TRAIN, EVAL and PREDICT
         self.est = tf.contrib.tpu.TPUEstimator(
             model_fn=model_fn,
             use_tpu=self.use_tpu,
             config=config,
             params=params,
             train_batch_size=self.batch_size,
-            eval_batch_size=self.batch_size)
-
-        # CPU-based estimator used for PREDICT (generating images)
-        self.cpu_est = tf.contrib.tpu.TPUEstimator(
-            model_fn=model_fn,
-            use_tpu=False,
-            config=config,
-            params=params,
-            predict_batch_size=self.num_viz_images)
-
+            eval_batch_size=self.batch_size,
+            predict_batch_size=pred_batch
+        )
 
     def train(self,
               train_steps,
@@ -482,27 +521,106 @@ class CoreModelTPU(object):
                 tf.logging.info('Finished evaluating')
                 tf.logging.info(metrics)
 
+            self.generate_images(generate_input_fn, current_step)
+
+    def generate_images(self, generate_input_fn, image_name):
+            tf.logging.info('Start generating images')
             # Render some generated images
-            generated_iter = self.cpu_est.predict(input_fn=generate_input_fn('PREDICT'))
-            images = [p['generated_images'][:, :, :] for p in generated_iter]
+            rounds_gen_imgs = max(int(np.ceil(self.num_viz_images / self.batch_size)), 1)
+            tf.logging.debug('Gonna generate images in %s rounds', rounds_gen_imgs)
+            images = []
+            for i in range(rounds_gen_imgs):
+                tf.logging.debug('Predict round %s/%s', i, rounds_gen_imgs)
+                generated_iter = self.est.predict(input_fn=generate_input_fn('PREDICT'))
+                images += [p['generated_images'][:, :, :] for p in generated_iter]
             if len(images) != self.num_viz_images :
-                tf.logging.info('Made %s images (when it should have been %s',
+                tf.logging.warning('Made %s images (when it should have been %s)',
                     len(images), self.num_viz_images )
                 images = images[:self.num_viz_images ]
+            tf.logging.debug('Genreated %s %s images', len(images), images[0].shape)
 
-            # assert len(images) == self.num_viz_images
-            image_rows = [np.concatenate(images[i:i+10], axis=0)
-                            for i in range(0, self.num_viz_images , 10)]
-            tiled_image = np.concatenate(image_rows, axis=1)
+            # TODO This is a cheap fix, need to change it to a more dynamic thign
+            if self.num_viz_images < 100:
+                tiled_image = images[0]
+            else:
+                image_rows = [np.concatenate(images[i:i+10], axis=0)
+                                for i in range(0, self.num_viz_images , 10)]
+                tiled_image = np.concatenate(image_rows, axis=1)
 
             img = convert_array_to_image(tiled_image)
 
-            step_string = str(current_step).zfill(5)
+            step_string = str(image_name).zfill(6)
             file_obj = tf.gfile.Open(
                 os.path.join(self.model_dir,
                                 'generated_images', 'gen_%s.png' % (step_string)), 'w')
             img.save(file_obj, format='png')
             tf.logging.info('Finished generating images')
+
+    def set_up_encoder(self, batch_size):
+        """ Creates the TF Estimator for the encoder predictions.
+
+        Args:
+            batch_size (int)
+        """
+
+        def encode_fn(features, labels, mode, params):
+            del labels    # Unconditional GAN does not use labels
+            # Pass images to be encoded
+            image = features
+            _, encoded_image = self.discriminator(
+                                        image, is_training=False, noise_dim=self.noise_dim)
+            return tf.contrib.tpu.TPUEstimatorSpec(mode=mode, predictions=encoded_image)
+
+        config, params = self.make_config()
+
+        # CPU-based estimator used for ECODE PREDICT (encoding images)
+        self.encode_est = tf.contrib.tpu.TPUEstimator(
+            model_fn=encode_fn,
+            use_tpu=False,
+            config=config,
+            params=params,
+            predict_batch_size=batch_size)
+
+
+    def encode(self, images, batch_size=1, clean_encoder_est=False):
+        """ Encode an image to the Z-space using the model encoder
+
+        Args:
+            images (np.array): Image(s) to encode use formats "NHWC",
+                "HWC" (single image) or "HW" (single image)
+            batch_size (int, optional): Defaults to 1.
+            clean_encoder_est (bool, optional): Defaults to False. Resets the
+                encoder Estimator at the begining of this function and deletes
+                it at the end of it.
+
+        Returns:
+            Encoded images
+        """
+        # If the input is a single image we create a dimension for the batch
+        if len(images.shape) < 4:
+            images = np.expand_dims(images, axis=0)
+        # If the input was a 2D matrix we expand to a single channel
+        if len(images.shape) < 4:
+            images = np.expand_dims(images, axis=3)
+        assert len(images.shape) == 4
+
+        # TODO I don't know if cheking the first image is enough
+        if type(images[0,0,0,0]) == np.uint8:
+            images = (2 * (images / 255.0) - 1).astype(np.float32)
+
+        if not hasattr(self, 'encode_est') or clean_encoder_est:
+            self.set_up_encoder(batch_size)
+        def input_fn(params):
+            del params
+            dataset = tf.data.Dataset.from_tensor_slices((images, [[]]))
+            dataset = dataset.batch(batch_size)
+            features, labels = dataset.make_one_shot_iterator().get_next()
+            return features, labels
+
+        encoded_images = [z for z in self.encode_est.predict(input_fn=input_fn)]
+        if clean_encoder_est: #? May we need to free up some memory?
+            del self.encode_est
+        return encoded_images
 
 
     def save_samples_from_data(self, generate_input_fn):
@@ -526,13 +644,16 @@ class CoreModelTPU(object):
 
         sample_images = data_sampler.predict(input_fn=generate_input_fn('TRAIN'))
         tf.logging.info('That ran')
-        images = []
-        for i in range(self.num_viz_images ):
-            images.append(next(sample_images))
+        if self.num_viz_images < 100:
+            tiled_image = next(sample_images)
+        else:
+            images = []
+            for i in range(self.num_viz_images ):
+                images.append(next(sample_images))
 
-        image_rows = [np.concatenate(images[i:i+10], axis=0)
-                    for i in range(0, self.num_viz_images , 10)]
-        tiled_image = np.concatenate(image_rows, axis=1)
+            image_rows = [np.concatenate(images[i:i+10], axis=0)
+                        for i in range(0, self.num_viz_images , 10)]
+            tiled_image = np.concatenate(image_rows, axis=1)
         img = convert_array_to_image(tiled_image)
 
         file_obj = tf.gfile.Open(

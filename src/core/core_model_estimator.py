@@ -479,40 +479,37 @@ class CoreModelTPU(object):
                 ########
                 # EVAL #
                 ########
-                def _eval_metric_fn(d_loss, g_loss, e_loss, d_on_data, d_on_g):
+                def _eval_metric_fn(d_loss, g_loss, e_loss, d_on_data_logits, d_on_g_logits):
                     #  This thing runs on the same TPU as training so it needs to be
                     # consistent with the TPU restrictions and the shapes imposed in
                     # training
+                    with tf.variable_scope('metrics'):
+                        d_on_data = tf.sigmoid(d_on_data_logits)
+                        d_on_g = tf.sigmoid(d_on_g_logits)
 
-                    predictions = tf.concat(axis=0, values=[d_on_data, d_on_g])
-                    labels = tf.concat(axis=0,
-                            values=[tf.ones_like(d_on_data), tf.zeros_like(d_on_g)])
+                        accuracy =  1/2*tf.reduce_mean(d_on_data) \
+                                + 1/2*tf.reduce_mean(tf.ones_like(d_on_g)-d_on_g)
+                        tf.logging.debug(accuracy)
+                        metrics = {
+                            'discriminator_loss': tf.metrics.mean(d_loss),
+                            'generator_loss': tf.metrics.mean(g_loss),
+                            'discriminator_accuracy': tf.metrics.mean(accuracy)
+                            }
+                        if self.use_encoder:
+                            metrics['encoder_loss'] = tf.metrics.mean(e_loss)
 
-                    metrics = {
-                        'discriminator_loss': tf.metrics.mean(d_loss),
-                        'generator_loss': tf.metrics.mean(g_loss),
-                        'discriminator_accuracy': tf.metrics.accuracy(
-                                                    labels=labels, predictions=predictions)
-                        }
-                    if self.use_encoder:
-                        metrics['encoder_loss'] = tf.metrics.mean(e_loss)
+                        tf.logging.debug('Metrics %s', metrics)
 
-                    return metrics
+                        return metrics
 
                 if not self.use_encoder:
                     e_loss = None # TODO Quick fix, this is a bit messy, needa refactor
 
-                tf.logging.debug('eval E loss %s', e_loss)
-                tf.logging.debug('eval D loss %s', d_loss)
-                tf.logging.debug('eval G loss %s', g_loss)
-
-                d_on_data = tf.sigmoid(d_on_data_logits)
-                d_on_g = tf.sigmoid(d_on_g_logits)
-
                 return tf.contrib.tpu.TPUEstimatorSpec(
                     mode=mode,
                     loss=tf.reduce_mean(g_loss),
-                    eval_metrics=(_eval_metric_fn, [d_loss, g_loss, e_loss, d_on_data, d_on_g]))
+                    eval_metrics=(_eval_metric_fn,
+                            [d_loss, g_loss, e_loss, d_on_data_logits, d_on_g_logits]))
 
             # Should never reach here
             raise ValueError('Invalid mode provided to model_fn')

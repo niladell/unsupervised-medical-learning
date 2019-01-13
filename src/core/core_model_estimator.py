@@ -35,49 +35,49 @@ class CoreModelTPU(object):
                  model_dir: str,
                  data_dir: str,
                  dataset: str,
-                 learning_rate: float = 0.0002,
-                 d_optimizer: str = 'SGD',
-                 g_optimizer: str = 'ADAM',
-                 noise_dim: int = 64,
-                 use_encoder: bool = False,
-                 encoder: str = None,
-                 e_optimizer: str = None,
-                 batch_size: int = 128,
-                 iterations_per_loop: int = 100,
-                 num_viz_images: int = 100,
-                 eval_loss: bool = False,
-                 train_steps_per_eval: int = 100,
-                 num_eval_images: int = 100,
-                 use_tpu: str = False,
-                 tpu: str = '',
-                 tpu_zone: str = None,
-                 gcp_project: str = None,
-                 num_shards: int = None,
-                 ignore_params_check: bool = False
+                 learning_rate: float,
+                 d_optimizer: str,
+                 g_optimizer: str,
+                 noise_dim: int,
+                 use_encoder: bool,
+                 encoder: str,
+                 e_optimizer: str,
+                 batch_size: int,
+                 iterations_per_loop: int,
+                 num_viz_images: int,
+                 eval_loss: bool,
+                 train_steps_per_eval: int,
+                 num_eval_images: int,
+                 use_tpu: str,
+                 tpu: str,
+                 tpu_zone: str,
+                 gcp_project: str,
+                 num_shards: int,
+                 ignore_params_check: bool,
                 ):
         """Wrapper class for the model.
 
         Args:
             model_dir (str): Model directory
             data_dir (str): Data directory
-            learning_rate (float, optional): Defaults to 0.0002.
+            learning_rate (float): Defaults to 0.0002.
             d_optimizer (str): Optimizer to use in the discriminator. Defaults to SGD.
             g_optimizer (str): Optimizer to use in the generator. Defaults to ADAM.
             noise_dim (int): Size of the nose (or feature) space. Defaults to 64.
-            use_encoder (bool): Defaults to False.
+            use_encoder (bool)
             encoder (str): Which encoder to use. 'ATTACHED' to the discriminator or 'INDEPENDENT' from it.
             e_optimizer (str): Optimizer to use in the encoder. Defaults to ADAM.
-            batch_size (int, optional): Defaults to 1024.
-            iterations_per_loop (int, optional): Defaults to 500. Iteratios per loop on the estimator.
-            num_viz_images (int, optional): Defaults to 100. Number of example images generated.
-            eval_loss (bool, optional): Defaults to False.
-            train_steps_per_eval (int, optional): Defaults to 100.
-            num_eval_images (int, optional): Defaults to 100. Number of eval samples.
-            use_tpu (str, optional): Defaults to False.
-            tpu (str, optional): Defaults to ''. TPU to use.
-            tpu_zone (str, optional): Defaults to None.
-            gcp_project (str, optional): Defaults to None.
-            num_shards (int, optional): Defaults to None.
+            batch_size (int): Defaults to 1024.
+            iterations_per_loop (int): Defaults to 500. Iteratios per loop on the estimator.
+            num_viz_images (int): Defaults to 100. Number of example images generated.
+            eval_loss (bool)
+            train_steps_per_eval (int): Defaults to 100.
+            num_eval_images (int): Defaults to 100. Number of eval samples.
+            use_tpu (str)
+            tpu (str): Defaults to ''. TPU to use.
+            tpu_zone (str): Defaults to None.
+            gcp_project (str): Defaults to None.
+            num_shards (int): Defaults to None.
             ignore_params_check (bool): Runs without checking parameters form previous runs. Defaults to False.
         """
         self.dataset = dataset
@@ -85,12 +85,15 @@ class CoreModelTPU(object):
         if model_dir[-1] == '/':
             model_dir = model_dir[:-1]
         self.model_dir =\
-          '{}/{}_{}{}z{}_lr{}'.format(
+          '{}/{}_{}{}z{}_{}{}{}_lr{}'.format(
                     model_dir,
                     self.__class__.__name__,
                     'E' if use_encoder else '',
-                    encoder[0] + '_' if use_encoder and encoder else '',
+                    encoder[0] + '_' if use_encoder and encoder else '', # A bit of a stupid option
                     noise_dim,
+                    d_optimizer[0],
+                    g_optimizer[0],
+                    e_optimizer[0] if e_optimizer else '', # TODO a bit of a mess with the encoder options
                     learning_rate)
 
         self.use_tpu = use_tpu
@@ -161,7 +164,7 @@ class CoreModelTPU(object):
         # If different this parameters should not affect the model or training outcome
         non_relevant_data = ['use_tpu', 'tpu', 'tpu_zone', 'gcp_project', 'num_shards',
                              'num_viz_images', 'eval_loss', 'train_steps_per_eval',
-                             'num_eval_images'] # What else should be here?
+                             'num_eval_images', 'batch_size'] # What else should be here?
 
         def compare(old, new):
             old_keys = set(old.keys())

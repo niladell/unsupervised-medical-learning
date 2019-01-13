@@ -72,7 +72,7 @@ flags.DEFINE_boolean('eval_loss', True,
                      'Evaluate discriminator and generator loss during eval')
 
 flags.DEFINE_string('log_level', 'INFO', 'Logging level')
-flags.DEFINE_boolean('ignore_param_check', False,
+flags.DEFINE_boolean('ignore_params_check', False,
                     'Ignores checking parameters and overwrites params.txt')
 
 if __name__ == "__main__":
@@ -113,7 +113,8 @@ if __name__ == "__main__":
                 num_eval_images=FLAGS.num_eval_images,
                 # TPU settings
                 use_tpu=FLAGS.use_tpu, tpu=FLAGS.tpu, tpu_zone=FLAGS.tpu_zone,
-                gcp_project=FLAGS.gcp_project, num_shards=FLAGS.num_shards)
+                gcp_project=FLAGS.gcp_project, num_shards=FLAGS.num_shards,
+                ignore_params_check=FLAGS.ignore_params_check)
 
     model.save_samples_from_data(generate_input_fn)
     model.build_model()

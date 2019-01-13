@@ -390,10 +390,21 @@ class CoreModelTPU(object):
                 def _eval_metric_fn(d_loss, g_loss):
                     # When using TPUs, this function is run on a different machine than the
                     # rest of the model_fn and should not capture any Tensors defined there
-                    return {
+
+                    predictions = tf.concat(axis=0, values=[d_on_data_logits, d_on_g_logits])
+                    labels = tf.concat(axis=0,
+                            values=[tf.ones_like(d_on_data_logits, tf.zeros_like(d_on_g_logits))])
+
+                    metrics = {
                         'discriminator_loss': tf.metrics.mean(d_loss),
-                        'generator_loss': tf.metrics.mean(g_loss)
+                        'generator_loss': tf.metrics.mean(g_loss),
+                        'discriminator_accuracy': tf.metrics.accuracy(
+                                                    labels=labels, predictions=predictions)
                         }
+                    if self.use_encoder:
+                        metrics['encoder_loss'] = tf.metrics.mean(e_loss)
+
+                    return metrics
 
                 return tf.contrib.tpu.TPUEstimatorSpec(
                     mode=mode,

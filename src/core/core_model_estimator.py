@@ -112,9 +112,9 @@ class CoreModelTPU(object):
         self.soft_label_strength = soft_label_strength
 
         self.use_encoder = use_encoder
-        if encoder not in ['ATTACHED', 'INDEPENDENT']:
+        self.encoder = encoder.upper()
+        if use_encoder and self.encoder not in ['ATTACHED', 'INDEPENDENT']:
             raise NameError('Encoder type not defined.')
-        self.encoder = encoder
         self.e_optimizer = None
         if use_encoder:
             self.e_optimizer = self.get_optimizer(e_optimizer, learning_rate)
@@ -212,7 +212,7 @@ class CoreModelTPU(object):
         else:
             raise NameError('Optimizer {} not recognised'.format(name))
 
-    def discriminator(self, x, is_training=True, scope='Discriminator', noise_dim=None): #pylint: disable=E0202
+    def discriminator(self, x, is_training=True, scope='Discriminator', noise_dim=None, reuse=tf.AUTO_REUSE): #pylint: disable=E0202
         """
         Definition of the discriminator to use. Do not modify the function here
         placeholder for the actual definition in model/ (see example)
@@ -222,6 +222,9 @@ class CoreModelTPU(object):
             is_training:
             scope: Default Discriminator.
             noise_dims: Output size of the encoder (in case there's one)
+            reuse: Default tf.AUTO_REUSE. Reuse in tf.varaible_scope; just
+                modify in the case of wanting an independent network using
+                the discriminator architecture (as in an Indep. Encoder)
 
         Raises:
             NotImplementedError: Model has to be implemented yet (in a separate instance in model/)
@@ -398,7 +401,8 @@ class CoreModelTPU(object):
                 elif self.encoder == 'INDEPENDENT':
                     _, g_logits_encoded = self.discriminator(generated_images,
                                                             scope='Encoder',
-                                                            noise_dim=noise_dim)
+                                                            noise_dim=noise_dim,
+                                                            reuse=None)
                     d_on_g_logits = tf.squeeze(self.discriminator(generated_images,
                                                             scope='Discriminator'))
                 else:

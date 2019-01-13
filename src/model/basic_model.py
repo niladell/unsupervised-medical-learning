@@ -38,8 +38,8 @@ class BasicModel(CoreModelTPU):
     Example definition of a model/network architecture using this template.
     """
 
-    def discriminator(self, x, is_training=True, scope='Discriminator', noise_dim=None):
-        with tf.variable_scope(scope, reuse=tf.AUTO_REUSE): # TODO Independent Encoder shouldn't reuse
+    def discriminator(self, x, is_training=True, scope='Discriminator', noise_dim=None, reuse=tf.AUTO_REUSE):
+        with tf.variable_scope(scope, reuse=reuse):
             tf.logging.debug('Discriminator %s', self.dataset)
             tf.logging.debug('D -- Input %s', x)
 

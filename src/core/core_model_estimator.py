@@ -278,14 +278,24 @@ class CoreModelTPU(object):
 
             # Get logits from discriminator
             d_on_data_logits = tf.squeeze(self.discriminator(real_images))
-            if self.use_encoder and self.encoder == 'ATTACHED':
-                # If we use and embedded encoder we create it here
-                d_on_g_logits, g_logits_encoded =\
-                    self.discriminator(generated_images, noise_dim=noise_dim)
-                d_on_g_logits = tf.squeeze(d_on_g_logits)
+
+            if self.use_encoder:
+                if self.encoder == 'ATTACHED':
+                     # If we use and embedded encoder we create alongside the discriminator
+                    d_on_g_logits, g_logits_encoded =\
+                       self.discriminator(generated_images, noise_dim=noise_dim)
+                elif self.encoder == 'INDEPENDENT':
+                    _, g_logits_encoded = self.discriminator(generated_images,
+                                                            scope='Encoder',
+                                                            noise_dim=noise_dim)
+                    d_on_g_logits = tf.squeeze(self.discriminator(generated_images,
+                                                            scope='Discriminator'))
+                else:
+                    raise NameError('No encoder type {} defined'.format(self.encoder))
             else:
                 # Regular GAN w/o encoder
-                d_on_g_logits = tf.squeeze(self.discriminator(generated_images))
+                d_on_g_logits = self.discriminator(generated_images)
+            d_on_g_logits = tf.squeeze(d_on_g_logits)
 
             # Create the labels
             true_label = tf.ones_like(d_on_data_logits)
@@ -330,10 +340,6 @@ class CoreModelTPU(object):
 
             # Create independent encoder
             if self.use_encoder:
-                if self.encoder == 'INDEPENDENT':
-                    _, g_logits_encoded = self.discriminator(generated_images,
-                                                            scope='Encoder',
-                                                            noise_dim=noise_dim)
                 e_loss = tf.losses.mean_squared_error(
                     labels=random_noise,
                     predictions=g_logits_encoded,

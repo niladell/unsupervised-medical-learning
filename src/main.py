@@ -60,6 +60,9 @@ flags.DEFINE_integer('batch_size', 1024,
 flags.DEFINE_float('soft_label', 0.2,
                     'Perturb (i.e. soften) labels randomly between -+ this' +\
                     'value. Soft label of 0 is the same as hard labels {0,1}')
+flags.DEFINE_float('e_loss_lambda', 1.0,
+                    'Factor by which the encoder loss is scaled (`Loss = ' +\
+                    'Adv_loss + lambda * Enc_loss`)')
 flags.DEFINE_integer('train_steps', 50000, 'Number of training steps')
 flags.DEFINE_integer('train_steps_per_eval', 5000,
                      'Steps per eval and image generation')
@@ -107,7 +110,7 @@ if __name__ == "__main__":
                 learning_rate=FLAGS.learning_rate, batch_size=FLAGS.batch_size, noise_dim=FLAGS.noise_dim,
                 soft_label_strength=FLAGS.soft_label,
                 # Encoder
-                use_encoder=FLAGS.use_encoder, encoder=FLAGS.encoder,
+                use_encoder=FLAGS.use_encoder, encoder=FLAGS.encoder, e_loss_lambda=FLAGS.e_loss_lambda,
                 # Optimizers
                 g_optimizer=FLAGS.g_optimizer, d_optimizer=FLAGS.d_optimizer, e_optimizer=FLAGS.e_optimizer,
                 # Training and prediction settings

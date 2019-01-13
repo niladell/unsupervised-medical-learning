@@ -42,6 +42,7 @@ class CoreModelTPU(object):
                  use_encoder: bool,
                  encoder: str,
                  e_optimizer: str,
+                 e_loss_lambda: float,
                  batch_size: int,
                  soft_label_strength: float,
                  iterations_per_loop: int,
@@ -68,6 +69,7 @@ class CoreModelTPU(object):
             use_encoder (bool)
             encoder (str): Which encoder to use. 'ATTACHED' to the discriminator or 'INDEPENDENT' from it.
             e_optimizer (str): Optimizer to use in the encoder. Defaults to ADAM.
+            e_loss_lambda (str): Factor by which the encoder loss is scaled (`Loss = Adv_oss + lambda * Enc_loss`)
             batch_size (int): Defaults to 1024.
             soft_label_strength (float). Value of the perturbation on soft labels (0 is same as hard labels).
             iterations_per_loop (int): Defaults to 500. Iteratios per loop on the estimator.
@@ -87,7 +89,7 @@ class CoreModelTPU(object):
         if model_dir[-1] == '/':
             model_dir = model_dir[:-1]
         self.model_dir =\
-          '{}/{}_{}{}z{}_{}{}{}_lr{}'.format(
+          '{}/{}_{}{}z{}_{}{}{}{}_lr{}'.format(
                     model_dir,
                     self.__class__.__name__,
                     'E' if use_encoder else '',
@@ -96,6 +98,7 @@ class CoreModelTPU(object):
                     d_optimizer[0],
                     g_optimizer[0],
                     e_optimizer[0] if e_optimizer else '', # TODO a bit of a mess with the encoder options
+                    '_ld%s' % e_loss_lambda if use_encoder else '',
                     learning_rate)
 
         self.use_tpu = use_tpu
@@ -108,6 +111,7 @@ class CoreModelTPU(object):
         self.g_optimizer = self.get_optimizer(g_optimizer, learning_rate)
         self.d_optimizer = self.get_optimizer(d_optimizer, learning_rate)
         self.noise_dim = noise_dim
+        self.e_loss_lambda = e_loss_lambda
 
         self.soft_label_strength = soft_label_strength
 
@@ -337,7 +341,7 @@ class CoreModelTPU(object):
             with tf.variable_scope('Discriminator'):
                 #   Discriminator:
                 if self.use_encoder and self.encoder == 'ATTACHED':
-                    d_loss = d_loss + e_loss
+                    d_loss = d_loss + self.e_loss_lambda * e_loss
                 d_loss = tf.reduce_mean(d_loss)
 
             with tf.variable_scope('Generator'):
@@ -345,7 +349,7 @@ class CoreModelTPU(object):
                 # Do we use the encoder loss to train on G or is it independent
                 e_loss_on_g = True
                 if self.use_encoder and e_loss_on_g:
-                    g_loss = g_loss + e_loss
+                    g_loss = g_loss + self.e_loss_lambda * e_loss
                 g_loss = tf.reduce_mean(g_loss)
 
             with tf.variable_scope('Encoder'):

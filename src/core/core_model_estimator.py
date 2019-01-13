@@ -43,6 +43,7 @@ class CoreModelTPU(object):
                  encoder: str,
                  e_optimizer: str,
                  batch_size: int,
+                 soft_label_strength: float,
                  iterations_per_loop: int,
                  num_viz_images: int,
                  eval_loss: bool,
@@ -68,6 +69,7 @@ class CoreModelTPU(object):
             encoder (str): Which encoder to use. 'ATTACHED' to the discriminator or 'INDEPENDENT' from it.
             e_optimizer (str): Optimizer to use in the encoder. Defaults to ADAM.
             batch_size (int): Defaults to 1024.
+            soft_label_strength (float). Value of the perturbation on soft labels (0 is same as hard labels).
             iterations_per_loop (int): Defaults to 500. Iteratios per loop on the estimator.
             num_viz_images (int): Defaults to 100. Number of example images generated.
             eval_loss (bool)
@@ -106,6 +108,8 @@ class CoreModelTPU(object):
         self.g_optimizer = self.get_optimizer(g_optimizer, learning_rate)
         self.d_optimizer = self.get_optimizer(d_optimizer, learning_rate)
         self.noise_dim = noise_dim
+
+        self.soft_label_strength = soft_label_strength
 
         self.use_encoder = use_encoder
         if encoder not in ['ATTACHED', 'INDEPENDENT']:
@@ -290,15 +294,24 @@ class CoreModelTPU(object):
             true_label_g = tf.ones_like(d_on_g_logits)
 
             # Soften the labels (ganTricks)
-            fuzzyness = 0.2
-            if fuzzyness != 0:
+            if self.soft_label_strength != 0:
                 true_label += tf.random_uniform(true_label.shape,
-                                            minval=-fuzzyness, maxval=fuzzyness)
-                fake_label += tf.random_uniform(fake_label.shape,
-                                            minval=-fuzzyness, maxval=fuzzyness)
-                true_label_g += tf.random_uniform(true_label_g.shape,
-                                            minval=-fuzzyness, maxval=fuzzyness)
+                                            minval=-self.soft_label_strength,
+                                            maxval=self.soft_label_strength)
+                true_label = tf.clip_by_value(
+                                        true_label, 0, 1)
 
+                fake_label += tf.random_uniform(fake_label.shape,
+                                            minval=-self.soft_label_strength,
+                                            maxval=self.soft_label_strength)
+                fake_label = tf.clip_by_value(
+                                        fake_label, 0, 1)
+
+                true_label_g += tf.random_uniform(true_label_g.shape,
+                                            minval=-self.soft_label_strength,
+                                            maxval=self.soft_label_strength)
+                true_label_g = tf.clip_by_value(
+                                        true_label_g, 0, 1)
 
             # Calculate discriminator loss
             d_loss_on_data = tf.nn.sigmoid_cross_entropy_with_logits(

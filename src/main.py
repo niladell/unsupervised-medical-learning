@@ -57,6 +57,9 @@ flags.DEFINE_string('e_optimizer', 'ADAM',  'Optimizer to use for the'
 
 flags.DEFINE_integer('batch_size', 1024,
                      'Batch size for both generator and discriminator')
+flags.DEFINE_float('soft_label', 0.2,
+                    'Perturb (i.e. soften) labels randomly between -+ this' +\
+                    'value. Soft label of 0 is the same as hard labels {0,1}')
 flags.DEFINE_integer('train_steps', 50000, 'Number of training steps')
 flags.DEFINE_integer('train_steps_per_eval', 5000,
                      'Steps per eval and image generation')
@@ -102,6 +105,7 @@ if __name__ == "__main__":
     model = Model(model_dir=FLAGS.model_dir, data_dir=FLAGS.data_dir, dataset=FLAGS.dataset,
                 # Model parameters
                 learning_rate=FLAGS.learning_rate, batch_size=FLAGS.batch_size, noise_dim=FLAGS.noise_dim,
+                soft_label_strength=FLAGS.soft_label,
                 # Encoder
                 use_encoder=FLAGS.use_encoder, encoder=FLAGS.encoder,
                 # Optimizers

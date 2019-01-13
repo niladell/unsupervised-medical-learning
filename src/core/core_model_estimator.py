@@ -434,7 +434,7 @@ class CoreModelTPU(object):
         # Batch needs to be multiple of number of replicas
         mod_num_viz_imgages = self.num_viz_images % NUMBER_REPLICAS
         pred_batch = self.num_viz_images + mod_num_viz_imgages
-        pred_natch = min(self.batch_size, pred_batch)
+        pred_batch = min(self.batch_size, pred_batch)
 
         # TPU-based estimator used for TRAIN, EVAL and PREDICT
         self.est = tf.contrib.tpu.TPUEstimator(

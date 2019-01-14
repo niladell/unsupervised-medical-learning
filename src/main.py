@@ -60,6 +60,11 @@ flags.DEFINE_integer('batch_size', 1024,
 flags.DEFINE_float('soft_label', 0.2,
                     'Perturb (i.e. soften) labels randomly between -+ this' +\
                     'value. Soft label of 0 is the same as hard labels {0,1}')
+flags.DEFINE_float('wgan_lambda', 10.0,
+                    'Lambda value of WGAN penalty. See Improved WGAN ' +\
+                    '(arXiv:1704.00028). Default value 10 (from paper)')
+flags.DEFINE_boolean('use_wgan', True,
+                    'Whether to use WGAN penalty or not')
 flags.DEFINE_float('e_loss_lambda', 1.0,
                     'Factor by which the encoder loss is scaled (`Loss = ' +\
                     'Adv_loss + lambda * Enc_loss`)')
@@ -108,7 +113,7 @@ if __name__ == "__main__":
     model = Model(model_dir=FLAGS.model_dir, data_dir=FLAGS.data_dir, dataset=FLAGS.dataset,
                 # Model parameters
                 learning_rate=FLAGS.learning_rate, batch_size=FLAGS.batch_size, noise_dim=FLAGS.noise_dim,
-                soft_label_strength=FLAGS.soft_label,
+                soft_label_strength=FLAGS.soft_label, use_wgan_penalty=FLAGS.use_wgan, wgan_lambda=FLAGS.wgan_lambda,
                 # Encoder
                 use_encoder=FLAGS.use_encoder, encoder=FLAGS.encoder, e_loss_lambda=FLAGS.e_loss_lambda,
                 # Optimizers

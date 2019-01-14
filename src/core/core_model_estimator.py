@@ -39,6 +39,8 @@ class CoreModelTPU(object):
                  d_optimizer: str,
                  g_optimizer: str,
                  noise_dim: int,
+                 use_wgan_penalty: bool,
+                 wgan_lambda: float,
                  use_encoder: bool,
                  encoder: str,
                  e_optimizer: str,
@@ -66,6 +68,8 @@ class CoreModelTPU(object):
             d_optimizer (str): Optimizer to use in the discriminator. Defaults to SGD.
             g_optimizer (str): Optimizer to use in the generator. Defaults to ADAM.
             noise_dim (int): Size of the nose (or feature) space. Defaults to 64.
+            use_wgan_penalty (bool)
+            wgan_lambda (float): `D_loss = D_loss + lambda * WGAN_penalty`
             use_encoder (bool)
             encoder (str): Which encoder to use. 'ATTACHED' to the discriminator or 'INDEPENDENT' from it.
             e_optimizer (str): Optimizer to use in the encoder. Defaults to ADAM.
@@ -89,7 +93,7 @@ class CoreModelTPU(object):
         if model_dir[-1] == '/':
             model_dir = model_dir[:-1]
         self.model_dir =\
-          '{}/{}_{}{}z{}_{}{}{}{}_lr{}'.format(
+          '{}/{}_{}{}z{}_{}{}{}{}{}_lr{}'.format(
                     model_dir,
                     self.__class__.__name__,
                     'E' if use_encoder else '',
@@ -99,6 +103,7 @@ class CoreModelTPU(object):
                     g_optimizer[0],
                     e_optimizer[0] if e_optimizer else '', # TODO a bit of a mess with the encoder options
                     '_ld%s' % e_loss_lambda if use_encoder else '',
+                    '_Wl%s' % wgan_lambda if use_wgan_penalty else '',
                     learning_rate)
 
         self.use_tpu = use_tpu
@@ -113,6 +118,8 @@ class CoreModelTPU(object):
         self.noise_dim = noise_dim
         self.e_loss_lambda = e_loss_lambda
 
+        self.wgan_penalty = use_wgan_penalty
+        self.wgan_lambda = wgan_lambda
         self.soft_label_strength = soft_label_strength
 
         self.use_encoder = use_encoder
@@ -423,6 +430,29 @@ class CoreModelTPU(object):
 
             # Compute the losses
             d_loss, g_loss, e_loss = self.create_losses(d_on_data_logits, d_on_g_logits, g_logits_encoded, random_noise)
+
+            if self.wgan_penalty:
+                with tf.variable_scope('wgan_penalty'):
+                    # WGAN with gradient penalty. As descibred in Improved WGANS (arXiv:1704.00028)
+                    eps = tf.random_uniform([], 0.0, 1.0)
+                    x_hat = real_images*eps + (1-eps)*generated_images
+                    ## TODO Ideally I'd use tf.random_uniform([batch_size,1], 0, 1)
+                    ## , with something like the following lines (but it doesn't work)
+                    # difference = real_images - generated_images
+                    # intermediate = tf.map_fn(
+                    #                 lambda elm: tf.multiply(elm[0], elm[1], name='x_hat_mult'),
+                    #                 eps, difference)
+                    # x_hat = generated_images + intermediate
+                    d_hat = self.discriminator(x_hat)
+                    tf.logging.debug('WGAN -- Eps: %s', eps)
+                    tf.logging.debug('WGAN -- x^ : %s', x_hat)
+                    tf.logging.debug('WGAN -- D^ : %s', d_hat)
+                    gradients = tf.gradients(d_hat, [x_hat])[0]
+                    tf.logging.debug('WGAN -- Grad_x(D): %s', gradients)
+                    wgan_penalty = tf.sqrt(tf.reduce_sum(tf.square(gradients), axis=[1,2,3]))
+                    wgan_penalty = (wgan_penalty - 1)**2
+                    d_loss += self.wgan_lambda*wgan_penalty
+                    tf.logging.debug('WGAN -- Penalty: %s', d_loss)
 
             # Combine losses
             d_loss_train, g_loss_train, e_loss_train = self.combine_losses(d_loss, g_loss, e_loss)

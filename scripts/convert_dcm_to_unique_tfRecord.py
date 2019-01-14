@@ -1,6 +1,5 @@
-from PIL import Image
 import numpy as np
-# import skimage.io as io
+from skimage.transform import rescale
 import tensorflow as tf
 import pydicom
 import os
@@ -21,8 +20,8 @@ def _float_feature(value):
     return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
 
 
-def convertToTfRecord(list_of_dcm_paths):
-    tfrecords_outfile = 'huge_Q500.tfrecord'
+def convertToTfRecord(list_of_dcm_paths, out_file, scaling_factor):
+    tfrecords_outfile = out_file #'huge_Q500.tfrecord'
     writer = tf.python_io.TFRecordWriter(tfrecords_outfile)
 
 
@@ -35,6 +34,7 @@ def convertToTfRecord(list_of_dcm_paths):
         mask = np.full_like(img_raw, True)
         mask[img_raw==-2000] = False # Mask of the actual values of the scan
         img_raw[img_raw==-2000] = 0 #?¿ Values outside the scanner can become 0¿
+
         max_val = np.max(img_raw)
         # TODO check if that properly works --> this is the type tf uses in the model
         # TODO see if using the max of each image gives good results --> different way
@@ -48,8 +48,12 @@ def convertToTfRecord(list_of_dcm_paths):
         #    The biggest value so far was 5067 (on Inês' set of dcms)... meaning
         #    wat do we do with that?
 
-        height = ds.pixel_array.shape[0]
-        width = ds.pixel_array.shape[1]
+        # Optional: resize image as 512 x 512 may be too much to train
+        if scaling_factor:
+            img_raw = rescale(img_raw, img_raw.shape / scaling_factor, anti_aliasing=True, preserve_range=False)
+
+        height =img_raw.shape[0]
+        width = img_raw.shape[1]
         patientID = ds.PatientID
         z = float(ds.SliceLocation)
         dcmname = os.path.basename(os.path.normpath(filepath))
@@ -74,7 +78,16 @@ def convertToTfRecord(list_of_dcm_paths):
     writer.close()
 
 if __name__ == '__main__':
-    # dirname = '/Users/ines/Documents/Ensino superior/Masters in NSC ETH UZH/Deep Learning/Project/unsupervised-medical-learning/src/datamanager'
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Convert dcms to tfrecords.')
+    # parser.add_argument('-f', '--folder', type=str,
+    #                     help='Folder with dcm files to be converted (recursive on subfolders)')
+    parser.add_argument('-o', '--output', default='train.tfrecords',
+                        help='Output file')
+    parser.add_argument('-n', '--downsample', type=int, default=None)
+
+    args = parser.parse_args()
     list_of_dcms = get_list_of_dcm_path('./list_of_dcms.txt')
-    convertToTfRecord(list_of_dcms)
-    # print(list_of_dcms)
+    convertToTfRecord(list_of_dcms, args.output, args.downsample)
+

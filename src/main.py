@@ -69,7 +69,7 @@ flags.DEFINE_float('e_loss_lambda', 1.0,
                     'Factor by which the encoder loss is scaled (`Loss = ' +\
                     'Adv_loss + lambda * Enc_loss`)')
 flags.DEFINE_integer('train_steps', 50000, 'Number of training steps')
-flags.DEFINE_integer('train_steps_per_eval', 5000,
+flags.DEFINE_integer('train_steps_per_eval', 1000,
                      'Steps per eval and image generation')
 flags.DEFINE_integer('num_eval_images', 1024,
                      'Number of images on the evaluation')

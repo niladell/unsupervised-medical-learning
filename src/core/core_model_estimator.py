@@ -479,8 +479,8 @@ class CoreModelTPU(object):
                              tf.contrib.tpu.CrossShardOptimizer(e_optimizer)
 
                 with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
-                    critic_steps = 1 # if self.wgan_penalty else 1
-                    # TODO Fix TPU crashing when getting more than one step
+                    critic_steps = 5 if self.wgan_penalty else 1
+                    # TODO pass this as a parameter
                     ops = []
                     for i in range(critic_steps):
                         d_step = d_optimizer.minimize(
@@ -489,8 +489,7 @@ class CoreModelTPU(object):
                                                         scope='Discriminator'))
                         # I really have no clue if this is a proper replacement for calling
                         # the optimizer op 'n' times, I can't help to feel this is somewhat
-                        # weird to begin with.
-                        # And it's actually not working so...
+                        # weird to begin with, tho it somewhat worked...
                         ops.append(d_step)
 
 

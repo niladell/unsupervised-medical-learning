@@ -479,16 +479,27 @@ class CoreModelTPU(object):
                              tf.contrib.tpu.CrossShardOptimizer(e_optimizer)
 
                 with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
-                    d_step = d_optimizer.minimize(
-                        d_loss_train,
-                        var_list=tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
-                                                    scope='Discriminator'))
+                    critic_steps = 1 # if self.wgan_penalty else 1
+                    # TODO Fix TPU crashing when getting more than one step
+                    ops = []
+                    for i in range(critic_steps):
+                        d_step = d_optimizer.minimize(
+                            d_loss_train,
+                            var_list=tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
+                                                        scope='Discriminator'))
+                        # I really have no clue if this is a proper replacement for calling
+                        # the optimizer op 'n' times, I can't help to feel this is somewhat
+                        # weird to begin with.
+                        # And it's actually not working so...
+                        ops.append(d_step)
+
+
                     g_step = g_optimizer.minimize(
                         g_loss_train,
                         var_list=tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
                                                     scope='Generator'))
 
-                    ops = [d_step, g_step]
+                    ops.append(g_step)
                     # If it is not independent it's updated under Discriminator
                     if self.use_encoder and self.encoder=='INDEPENDENT':
                         e_step = e_optimizer.minimize(
@@ -500,6 +511,9 @@ class CoreModelTPU(object):
                     increment_step = tf.assign_add(tf.train.get_or_create_global_step(), 1)
                     ops.append(increment_step)
                     joint_op = tf.group(ops)
+
+                    tf.logging.debug('Train OPS %s', ops)
+                    tf.logging.debug('Joint OP  %s', joint_op)
 
                 return tf.contrib.tpu.TPUEstimatorSpec(
                         mode=mode,

@@ -264,11 +264,12 @@ class CoreModelTPU(object):
         """Compute the different losses
 
         Args:
-            d_logits_real: [description]
-            d_logits_generated: [description]
-            g_logits: [description]
-            encoded_logits_generated:
-            input_noise:
+            d_logits_real: Logits from the discriminator on real data
+            d_logits_generated: Logits from the discriminator on generated
+                (fake) data.
+            encoded_logits_generated: Logits from the encoder on the generated
+                data.
+            input_noise: Random noise that was used as input in the generator.
 
         Retuns:
             The losses for the Discriminator, Generator, Encoder

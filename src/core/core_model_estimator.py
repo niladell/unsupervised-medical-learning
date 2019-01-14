@@ -19,7 +19,7 @@ from tensorflow.contrib import tpu
 from tensorflow.contrib.cluster_resolver import TPUClusterResolver #pylint: disable=E0611
 from tensorflow.python.estimator import estimator
 
-from util.image_postprocessing import convert_array_to_image
+from util.image_postprocessing import save_array_as_image
 
 tfgan = tf.contrib.gan
 queues = tf.contrib.slim.queues
@@ -664,13 +664,11 @@ class CoreModelTPU(object):
                                 for i in range(0, self.num_viz_images , 10)]
                 tiled_image = np.concatenate(image_rows, axis=1)
 
-            img = convert_array_to_image(tiled_image)
-
             step_string = str(image_name).zfill(6)
-            file_obj = tf.gfile.Open(
-                os.path.join(self.model_dir,
-                                'generated_images', 'gen_%s.png' % (step_string)), 'w')
-            img.save(file_obj, format='png')
+            filename = os.path.join(self.model_dir,
+                                'generated_images', 'gen_%s.png' % (step_string))
+            save_array_as_image(tiled_image, filename)
+
             tf.logging.info('Finished generating images')
 
     def set_up_encoder(self, batch_size):
@@ -771,10 +769,9 @@ class CoreModelTPU(object):
             image_rows = [np.concatenate(images[i:i+10], axis=0)
                         for i in range(0, self.num_viz_images , 10)]
             tiled_image = np.concatenate(image_rows, axis=1)
-        img = convert_array_to_image(tiled_image)
 
-        file_obj = tf.gfile.Open(
-            os.path.join(self.model_dir,
-                            'generated_images', 'sampled_data.png'), 'w')
-        img.save(file_obj, format='png')
+        filename = os.path.join(self.model_dir,
+                            'generated_images', 'sampled_data.png')
+        save_array_as_image(tiled_image, filename)
+
         tf.logging.info('File with sample images created.')

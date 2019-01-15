@@ -265,7 +265,7 @@ class CoreModelTPU(object):
         raise NotImplementedError('No discriminator defined.')
 
 
-    def create_losses(self, d_logits_real, d_logits_generated, encoded_logits_generated, input_noise):
+    def create_losses(self, d_logits_real, d_logits_generated, encoded_logits_generated, input_noise, real_images=None, generated_images=None):
         """Compute the different losses
 
         Args:
@@ -275,6 +275,8 @@ class CoreModelTPU(object):
             encoded_logits_generated: Logits from the encoder on the generated
                 data.
             input_noise: Random noise that was used as input in the generator.
+            real_images: Needed for the WGAN loss
+            generated_images: Needed for the WGAN loss
 
         Retuns:
             The losses for the Discriminator, Generator, Encoder
@@ -282,47 +284,82 @@ class CoreModelTPU(object):
         (in case of no encoder the Encoder loss will be none)
         """
         with tf.variable_scope('loss_compute'):
-            # Create the labels
-            true_label = tf.ones_like(d_logits_real)
-            fake_label = tf.zeros_like(d_logits_generated)
-            #  We invert the labels for the generator training (ganTricks)
-            true_label_g = tf.ones_like(d_logits_generated)
+            if self.wgan_penalty:
+                assert real_images and generated_images
+                with tf.variable_scope('wgan_loss'):
 
-            # Soften the labels (ganTricks)
-            if self.soft_label_strength != 0:
-                true_label += tf.random_uniform(true_label.shape,
-                                            minval=-self.soft_label_strength,
-                                            maxval=self.soft_label_strength)
-                true_label = tf.clip_by_value(
-                                        true_label, 0, 1)
+                    # WGAN uses a critic intead of a discriminator (i.e. at the end of the day we are
+                    # not interested on the real-fake dilema, but on how similar is the fake one to a
+                    # real one (wavy interpretation))
+                    d_loss =  tf.reduce_mean(d_logits_generated) - tf.reduce_mean(d_logits_real)
+                    g_loss = -tf.reduce_mean(d_logits_generated)
 
-                fake_label += tf.random_uniform(fake_label.shape,
-                                            minval=-self.soft_label_strength,
-                                            maxval=self.soft_label_strength)
-                fake_label = tf.clip_by_value(
-                                        fake_label, 0, 1)
+                    tf.logging.debug('WGAN -- D loss: %s', d_loss)
+                    tf.logging.debug('WGAN -- G loss: %s', g_loss)
 
-                true_label_g += tf.random_uniform(true_label_g.shape,
-                                            minval=-self.soft_label_strength,
-                                            maxval=self.soft_label_strength)
-                true_label_g = tf.clip_by_value(
-                                        true_label_g, 0, 1)
-            with tf.variable_scope('Discriminator'):
-                # Calculate discriminator loss
-                d_loss_on_data = tf.nn.sigmoid_cross_entropy_with_logits(
-                    labels=true_label,
-                    logits=d_logits_real)
-                d_loss_on_gen = tf.nn.sigmoid_cross_entropy_with_logits(
-                    labels=fake_label,
-                    logits=d_logits_generated)
+                    # WGAN with gradient penalty. As descibred in Improved WGANS (arXiv:1704.00028)
+                    eps = tf.random_uniform([], 0.0, 1.0)
+                    x_hat = real_images*eps + (1-eps)*generated_images
+                    ## TODO Ideally I'd use tf.random_uniform([batch_size,1], 0, 1)
+                    ## , with something like the following lines (but it doesn't work)
+                    # difference = real_images - generated_images
+                    # intermediate = tf.map_fn(
+                    #                 lambda elm: tf.multiply(elm[0], elm[1], name='x_hat_mult'),
+                    #                 eps, difference)
+                    # x_hat = generated_images + intermediate
+                    d_hat = self.discriminator(x_hat)
+                    tf.logging.debug('WGAN -- Eps: %s', eps)
+                    tf.logging.debug('WGAN -- x^ : %s', x_hat)
+                    tf.logging.debug('WGAN -- D^ : %s', d_hat)
+                    gradients = tf.gradients(d_hat, [x_hat])[0]
+                    tf.logging.debug('WGAN -- Grad_x(D): %s', gradients)
+                    wgan_penalty = tf.sqrt(tf.reduce_sum(tf.square(gradients), axis=[1,2,3]))
+                    wgan_penalty = (wgan_penalty - 1)**2
+                    d_loss += self.wgan_lambda*wgan_penalty
+                    tf.logging.debug('WGAN -- Penalty: %s', d_loss)
+            else:
+                with tf.variable_scope('classicGAN_loss'):
+                    # Create the labels
+                    true_label = tf.ones_like(d_logits_real)
+                    fake_label = tf.zeros_like(d_logits_generated)
+                    #  We invert the labels for the generator training (ganTricks)
+                    true_label_g = tf.ones_like(d_logits_generated)
 
-                d_loss = d_loss_on_data + d_loss_on_gen
+                    # Soften the labels (ganTricks)
+                    if self.soft_label_strength != 0:
+                        true_label += tf.random_uniform(true_label.shape,
+                                                    minval=-self.soft_label_strength,
+                                                    maxval=self.soft_label_strength)
+                        true_label = tf.clip_by_value(
+                                                true_label, 0, 1)
 
-            with tf.variable_scope('Generator'):
-                # Calculate generator loss
-                g_loss = tf.nn.sigmoid_cross_entropy_with_logits(
-                    labels=true_label_g,
-                    logits=d_logits_generated)
+                        fake_label += tf.random_uniform(fake_label.shape,
+                                                    minval=-self.soft_label_strength,
+                                                    maxval=self.soft_label_strength)
+                        fake_label = tf.clip_by_value(
+                                                fake_label, 0, 1)
+
+                        true_label_g += tf.random_uniform(true_label_g.shape,
+                                                    minval=-self.soft_label_strength,
+                                                    maxval=self.soft_label_strength)
+                        true_label_g = tf.clip_by_value(
+                                                true_label_g, 0, 1)
+                    with tf.variable_scope('Discriminator'):
+                        # Calculate discriminator loss
+                        d_loss_on_data = tf.nn.sigmoid_cross_entropy_with_logits(
+                            labels=true_label,
+                            logits=d_logits_real)
+                        d_loss_on_gen = tf.nn.sigmoid_cross_entropy_with_logits(
+                            labels=fake_label,
+                            logits=d_logits_generated)
+
+                        d_loss = d_loss_on_data + d_loss_on_gen
+
+                    with tf.variable_scope('Generator'):
+                        # Calculate generator loss
+                        g_loss = tf.nn.sigmoid_cross_entropy_with_logits(
+                            labels=true_label_g,
+                            logits=d_logits_generated)
 
             with tf.variable_scope('Encoder'):
                 # Create independent encoder loss
@@ -435,30 +472,12 @@ class CoreModelTPU(object):
             tf.logging.debug('E (from G) logits %s', g_logits_encoded)
 
             # Compute the losses
-            d_loss, g_loss, e_loss = self.create_losses(d_on_data_logits, d_on_g_logits, g_logits_encoded, random_noise)
-
-            if self.wgan_penalty:
-                with tf.variable_scope('wgan_penalty'):
-                    # WGAN with gradient penalty. As descibred in Improved WGANS (arXiv:1704.00028)
-                    eps = tf.random_uniform([], 0.0, 1.0)
-                    x_hat = real_images*eps + (1-eps)*generated_images
-                    ## TODO Ideally I'd use tf.random_uniform([batch_size,1], 0, 1)
-                    ## , with something like the following lines (but it doesn't work)
-                    # difference = real_images - generated_images
-                    # intermediate = tf.map_fn(
-                    #                 lambda elm: tf.multiply(elm[0], elm[1], name='x_hat_mult'),
-                    #                 eps, difference)
-                    # x_hat = generated_images + intermediate
-                    d_hat = self.discriminator(x_hat)
-                    tf.logging.debug('WGAN -- Eps: %s', eps)
-                    tf.logging.debug('WGAN -- x^ : %s', x_hat)
-                    tf.logging.debug('WGAN -- D^ : %s', d_hat)
-                    gradients = tf.gradients(d_hat, [x_hat])[0]
-                    tf.logging.debug('WGAN -- Grad_x(D): %s', gradients)
-                    wgan_penalty = tf.sqrt(tf.reduce_sum(tf.square(gradients), axis=[1,2,3]))
-                    wgan_penalty = (wgan_penalty - 1)**2
-                    d_loss += self.wgan_lambda*wgan_penalty
-                    tf.logging.debug('WGAN -- Penalty: %s', d_loss)
+            d_loss, g_loss, e_loss = self.create_losses(d_logits_real=d_on_data_logits,
+                                                        d_logits_generated=d_on_g_logits,
+                                                        encoded_logits_generated=g_logits_encoded,
+                                                        random_noise=random_noise,
+                                                        real_images=real_images,
+                                                        genrated_images=generated_images)
 
             # Combine losses
             d_loss_train, g_loss_train, e_loss_train = self.combine_losses(d_loss, g_loss, e_loss)

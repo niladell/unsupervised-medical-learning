@@ -43,6 +43,7 @@ class CoreModelTPU(object):
                  noise_dim: int,
                  use_wgan_penalty: bool,
                  wgan_lambda: float,
+                 wgan_n: int,
                  use_encoder: bool,
                  encoder: str,
                  e_optimizer: str,
@@ -72,6 +73,7 @@ class CoreModelTPU(object):
             noise_dim (int): Size of the nose (or feature) space. Defaults to 64.
             use_wgan_penalty (bool)
             wgan_lambda (float): `D_loss = D_loss + lambda * WGAN_penalty`
+            wgan_n (int): Number of times that the Discriminator (critic) is updated per step
             use_encoder (bool)
             encoder (str): Which encoder to use. 'ATTACHED' to the discriminator or 'INDEPENDENT' from it.
             e_optimizer (str): Optimizer to use in the encoder. Defaults to ADAM.
@@ -105,7 +107,7 @@ class CoreModelTPU(object):
                     g_optimizer[0],
                     e_optimizer[0] if e_optimizer else '', # TODO a bit of a mess with the encoder options
                     '_ld%s' % e_loss_lambda if use_encoder else '',
-                    '_Wl%s' % wgan_lambda if use_wgan_penalty else '',
+                    '_W%dL%s' % (wgan_n, wgan_lambda) if use_wgan_penalty else '',
                     learning_rate)
 
         self.use_tpu = use_tpu
@@ -122,7 +124,7 @@ class CoreModelTPU(object):
 
         self.wgan_penalty = use_wgan_penalty
         self.wgan_lambda = wgan_lambda
-        self.wgan_n = 5 # Number of times that the Discriminator (critic) is updated per step
+        self.wgan_n = wgan_n # Number of times that the Discriminator (critic) is updated per step
         self.soft_label_strength = soft_label_strength
 
         self.use_encoder = use_encoder
@@ -676,8 +678,8 @@ class CoreModelTPU(object):
                                 values=img,
                                 step=current_step,
                                 bins=100)
-            tf.logging.debug('Images and histogram saved to the tf.summary via \
-                              custom TF Summary Logger')
+            tf.logging.info('Images and histogram saved to the tf.summary via ' +\
+                            'custom TF Summary Logger')
 
             # TODO This is a cheap fix, need to change it to a more dynamic thign
             if self.num_viz_images < 100:

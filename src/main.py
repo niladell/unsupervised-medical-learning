@@ -65,6 +65,10 @@ flags.DEFINE_float('wgan_lambda', 10.0,
                     '(arXiv:1704.00028). Default value 10 (from paper)')
 flags.DEFINE_boolean('use_wgan', True,
                     'Whether to use WGAN penalty or not')
+flags.DEFINE_integer('wgan_n', 5,
+                     'In WGAN penalty: Number of times that the Discriminator ' +\
+                     ' (critic) is updated per step')
+
 flags.DEFINE_float('e_loss_lambda', 1.0,
                     'Factor by which the encoder loss is scaled (`Loss = ' +\
                     'Adv_loss + lambda * Enc_loss`)')
@@ -113,7 +117,9 @@ if __name__ == "__main__":
     model = Model(model_dir=FLAGS.model_dir, data_dir=FLAGS.data_dir, dataset=FLAGS.dataset,
                 # Model parameters
                 learning_rate=FLAGS.learning_rate, batch_size=FLAGS.batch_size, noise_dim=FLAGS.noise_dim,
-                soft_label_strength=FLAGS.soft_label, use_wgan_penalty=FLAGS.use_wgan, wgan_lambda=FLAGS.wgan_lambda,
+                soft_label_strength=FLAGS.soft_label,
+                # WGAN
+                use_wgan_penalty=FLAGS.use_wgan, wgan_lambda=FLAGS.wgan_lambda, wgan_n=FLAGS.wgan_n,
                 # Encoder
                 use_encoder=FLAGS.use_encoder, encoder=FLAGS.encoder, e_loss_lambda=FLAGS.e_loss_lambda,
                 # Optimizers

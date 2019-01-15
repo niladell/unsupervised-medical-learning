@@ -39,7 +39,7 @@ def save_array_as_image(array, filename, do_histogram=True, bins=100):
 
     if do_histogram:
         # Plot of the rescaled image, before applying windowing:
-        plt.figure()
+        # plt.figure()  # It's kinda neat to have all the hists reported
         plt.hist(array.flatten(), bins=bins)
         plt.title('HIST: %s' % filename)
         filename = filename.split('.')

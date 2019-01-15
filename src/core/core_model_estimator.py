@@ -173,8 +173,6 @@ class CoreModelTPU(object):
         with tf.gfile.GFile(self.model_dir + '/params.txt', 'wb') as f:
             f.write(json.dumps(model_params, indent=4, sort_keys=True))
 
-        self.custom_tfs = TFSLogger(log_dir=self.model_dir)
-
 
     def equal_parms(self, model_params, old_params):
         """Compare the old model parameters with the newly defined ones"""
@@ -666,14 +664,17 @@ class CoreModelTPU(object):
         tf.logging.debug('Genreated %s %s images', len(images), images[0].shape)
 
         try:
+
+            custom_tfs = TFSLogger(log_dir=self.model_dir)
+
             step_string = str(current_step).zfill(6)
             n_log_imgs = 15 if 15 < len(images) else len(images)
-            self.custom_tfs.log_images(
+            custom_tfs.log_images(
                             tag='gen_%s' % step_string,
                             images=images[:n_log_imgs],
                             step=current_step)
             for idx, img in enumerate(images[:n_log_imgs]):
-                self.custom_tfs.log_histogram(
+                custom_tfs.log_histogram(
                                 tag='gen_hist_img%s' % idx,
                                 values=img,
                                 step=current_step,

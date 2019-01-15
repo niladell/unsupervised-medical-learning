@@ -6,36 +6,24 @@ import pydicom
 import matplotlib.pyplot as plt
 import re
 import argparse
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
+import os
+import itertools
 
 """ 
-1. normalize: for every subj_study, push z-loc boundaries. 
--> was ist unique beim filename? 
+
 
 """
-
-def _input_files(path):
-    """Check if z-location is consistent
-    Note: Run in directory where dcms are
-
-    Args:
-        path (str): root path where to start searching
-        filename_pattern (str): Any file with this substring will be
-            selected
-
-    Returns:
-        (list): List of all files found (with the path from root)
-    """
-    files = defaultdict(lambda : defaultdict(list))
-    for p, d, folder in tf.gfile.Walk(path):
-        #print(' Folder walk {}, {}, {}'.format(p, d, folder))
-        for f in folder:
-            if '.dcm' in f:
-                #print(files[f[:-13]]['files'])
-                files[f[:-13]]['files'].append(f)
-
-    return files
-
+def get_dcms(path):
+    list_of_dcm = defaultdict(lambda : defaultdict(list))
+    for dirpath, dirname, filenames in os.walk(path):
+        for file in filenames:
+            pattern = re.compile(r'.dcm$')
+            m = re.search(pattern, file)
+            if m is not None:
+                dcm_path = dirpath + '/' + file
+                list_of_dcm[dcm_path[:-13]]['files'].append(dcm_path)
+    return list_of_dcm
 
 def _push_to_positive_domain(dcm_file, neg_min, filename):
     dcm_file.SliceLocation += abs(neg_min)
@@ -47,7 +35,7 @@ def _push_to_positive_domain(dcm_file, neg_min, filename):
 def _normalize(dcm_file, max, filename):
     #print(max)
     if max != 0:
-        print('divide {} by {}'.format(dcm_file.SliceLocation, max))
+        #print('divide {} by {}'.format(dcm_file.SliceLocation, max))
         dcm_file.SliceLocation = (dcm_file.SliceLocation/max)
         return dcm_file
         #print('normalized value {}'.format(dcm_file.SliceLocation))
@@ -57,7 +45,7 @@ def _normalize(dcm_file, max, filename):
 
 
 def main(path):
-    files = _input_files(path)
+    files = get_dcms(path)
     max_z = [0, '']
     min_z = [1000, '']
     locations = []
@@ -66,15 +54,14 @@ def main(path):
 
     # loop through all subject studies
     for f in files:
-        #print(f)
+
         subj_extremes[f]['min'] = 10000
         subj_extremes[f]['max'] = -10000
-        # get min and max z-slice value
+
         for i in files[f]['files']:
             #print('working on {}'.format(i))
             ds = pydicom.dcmread(i)               
             location = ds.get('SliceLocation', "(missing)")
-            location = float(location)
             #print('slice location {}'.format(location))
             if location > max_z[0]:
                 max_z = [location, i]
@@ -87,9 +74,6 @@ def main(path):
 
             if location > subj_extremes[f]['max']:
                 subj_extremes[f]['max'] = location
-        #print(subj_extremes[f]['min'])
-        #print(subj_extremes[f]['max'])
-        #print('batch extremes: min: {}, max:{}'.format(subj_extremes[f]['min'],subj_extremes[f]['max']))
 
         # if minimal value negative
         if float(subj_extremes[f]['min']) < 0:
@@ -101,6 +85,7 @@ def main(path):
                 new_ds = _push_to_positive_domain(ds2, subj_extremes[f]['min'], j)
                 #print(new_ds.SliceLocation)
                 new_ds.save_as(j)
+
 
     for f in files:
         subj_extremes[f]['min'] = 10000
@@ -124,10 +109,48 @@ def main(path):
 
         for k in files[f]['files']:
             ds3 = pydicom.dcmread(k)
-            print('replace old value {}...'.format(ds3.SliceLocation))
+            #print('replace old value {}...'.format(ds3.SliceLocation))
             new_ds = _normalize(ds3, subj_extremes[f]['max'], k)
-            print(new_ds.SliceLocation)
+            #print(new_ds.SliceLocation)
             new_ds.save_as(k)
+    _check(files)
+
+def _check(files):
+        subj = {}
+        images = []
+        for f in files:
+            for i in files[f]['files']:
+                ds = pydicom.dcmread(i)
+                location = ds.get('SliceLocation', "(missing)")
+                subj[location] = i
+        od = OrderedDict(sorted(subj.items()))
+        #for k,v in od.items():
+            #print('{}\t{}'.format(k,v))
+        items = list(od.items())
+        a = items[0:3]
+        b = items[-4:-1]
+        imag_indexes = itertools.chain(a, b)
+        for k,v in imag_indexes:
+            ds = pydicom.dcmread(v)
+            img_raw = ds.pixel_array
+            images.append([img_raw, ds.SliceLocation])
+        image_array = np.asarray(images)
+        visualize(image_array)
+
+            
+def visualize(image_array):
+    w=512
+    h=512
+    fig=plt.figure(figsize=(8, 8))
+    columns = 3
+    rows = 2
+    for i in range(1, columns*rows +1):
+        img = image_array[i-1][0]
+        a = fig.add_subplot(rows, columns, i)
+        a.set_title("location "+str(image_array[i-1][1])[0:8])  # set title
+        plt.imshow(img)
+    plt.tight_layout()
+    plt.show()
 
 
 if __name__ == '__main__':
@@ -139,4 +162,6 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    main(args.path)
+    (main(args.path))
+
+    

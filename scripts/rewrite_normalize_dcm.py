@@ -34,19 +34,29 @@ def _input_files(path):
                 #print(files[f[:-13]]['files'])
                 files[f[:-13]]['files'].append(f)
 
-                #files.append(f)
-    #print(files['CQ500CT13_CT_PRE_CONTRAST_THIN']['files'])
     return files
-    # group files to
 
 
-def _rewrite_dcm(dcm_file, neg_min, filename):
+def _push_to_positive_domain(dcm_file, neg_min, filename):
     dcm_file.SliceLocation += abs(neg_min)
-    dcm_file.save_as(filename)
-    print('rewrote {}'.format(filename))
+
+    #dcm_file.save_as(filename)
+    return dcm_file
+    #print('with new location {}'.format(dcm_file.SliceLocation))
+
+def _normalize(dcm_file, max, filename):
+    #print(max)
+    if max != 0:
+        print('divide {} by {}'.format(dcm_file.SliceLocation, max))
+        dcm_file.SliceLocation = (dcm_file.SliceLocation/max)
+        return dcm_file
+        #print('normalized value {}'.format(dcm_file.SliceLocation))
+        #dcm_file.save_as(filename)
+    else:
+        return dcm_file
 
 
-def main(path, output_file):
+def main(path):
     files = _input_files(path)
     max_z = [0, '']
     min_z = [1000, '']
@@ -56,38 +66,77 @@ def main(path, output_file):
 
     # loop through all subject studies
     for f in files:
+        #print(f)
+        subj_extremes[f]['min'] = 10000
+        subj_extremes[f]['max'] = -10000
         # get min and max z-slice value
         for i in files[f]['files']:
+            #print('working on {}'.format(i))
             ds = pydicom.dcmread(i)               
             location = ds.get('SliceLocation', "(missing)")
+            location = float(location)
+            #print('slice location {}'.format(location))
             if location > max_z[0]:
                 max_z = [location, i]
             if location < min_z[0]:
                 min_z = [location,i]
     
             if location < subj_extremes[f]['min']:
+                #print('{} is smaller than {}'.format(location,subj_extremes[f]['min']))
                 subj_extremes[f]['min'] = location
 
             if location > subj_extremes[f]['max']:
                 subj_extremes[f]['max'] = location
+        #print(subj_extremes[f]['min'])
+        #print(subj_extremes[f]['max'])
+        #print('batch extremes: min: {}, max:{}'.format(subj_extremes[f]['min'],subj_extremes[f]['max']))
 
         # if minimal value negative
-        if int(subj_extremes[f]['min']) < 0:
-            for i in files[f]['files']:
-                _rewrite_dcm(ds, subj_extremes[f]['min'], i)
+        if float(subj_extremes[f]['min']) < 0:
+            #print('replace values for {}'.format(files[f]['files']))
+            for j in files[f]['files']:
+                ds2 = pydicom.dcmread(j)
+                location = ds.get('SliceLocation', "(missing)")
+                #print('replace old value {}...'.format(ds2.SliceLocation))
+                new_ds = _push_to_positive_domain(ds2, subj_extremes[f]['min'], j)
+                #print(new_ds.SliceLocation)
+                new_ds.save_as(j)
+
+    for f in files:
+        subj_extremes[f]['min'] = 10000
+        subj_extremes[f]['max'] = 0
+        for l in files[f]['files']:
+            #print(i)
+            ds = pydicom.dcmread(l)               
+            location = ds.get('SliceLocation', "(missing)")
+            if location > max_z[0]:
+                max_z = [location, l]
+            if location < min_z[0]:
+                min_z = [location,l]
+    
+            if location < subj_extremes[f]['min']:
+                #print('{} is smaller than {}'.format(location,subj_extremes[f]['min']))
+                subj_extremes[f]['min'] = location
+
+            if location > subj_extremes[f]['max']:
+                #print('{} is larger than {}'.format(location,subj_extremes[f]['max']))
+                subj_extremes[f]['max'] = location
+
+        for k in files[f]['files']:
+            ds3 = pydicom.dcmread(k)
+            print('replace old value {}...'.format(ds3.SliceLocation))
+            new_ds = _normalize(ds3, subj_extremes[f]['max'], k)
+            print(new_ds.SliceLocation)
+            new_ds.save_as(k)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Transform dcm \
         dataset into TFRecord format')
-    parser.add_argument('-o', '--output',
-                        help='Output TFRecord file', required=True)
+
     parser.add_argument('-p', '--path',
                         help='Path where to start searching', default='.')
-    #parser.add_argument('-i', '--filename',
-                        #help='File pattern to look for', required=True)
+
     args = parser.parse_args()
 
-    #_input_files(args.path)
-    main(args.path, args.output)
-    #visualize(array)
+    main(args.path)

@@ -6,6 +6,7 @@ import os
 import json
 import numpy as np
 from pprint import pformat
+import psutil
 
 import tensorflow as tf
 USE_ALTERNATIVE = False
@@ -19,7 +20,7 @@ from tensorflow.contrib import tpu
 from tensorflow.contrib.cluster_resolver import TPUClusterResolver #pylint: disable=E0611
 from tensorflow.python.estimator import estimator
 
-from util.image_postprocessing import save_array_as_image
+from util.image_postprocessing import save_array_as_image, save_windowed_image
 
 tfgan = tf.contrib.gan
 queues = tf.contrib.slim.queues
@@ -120,6 +121,7 @@ class CoreModelTPU(object):
 
         self.wgan_penalty = use_wgan_penalty
         self.wgan_lambda = wgan_lambda
+        self.wgan_n = 5 # Number of times that the Discriminator (critic) is updated per step
         self.soft_label_strength = soft_label_strength
 
         self.use_encoder = use_encoder
@@ -216,7 +218,7 @@ class CoreModelTPU(object):
         # parameters e.g. ADAM: learning rate, epsilon, beta1, beta2..
         if name == 'ADAM':
             return tf.train.AdamOptimizer(
-                learning_rate=learning_rate)
+                learning_rate=learning_rate, beta1=0.0, beta2=0.9)
         elif name == 'SGD':
             return tf.train.GradientDescentOptimizer(
                 learning_rate=learning_rate)
@@ -479,8 +481,7 @@ class CoreModelTPU(object):
                              tf.contrib.tpu.CrossShardOptimizer(e_optimizer)
 
                 with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
-                    critic_steps = 5 if self.wgan_penalty else 1
-                    # TODO pass this as a parameter
+                    critic_steps = self.wgan_n if self.wgan_penalty else 1
                     ops = []
                     for i in range(critic_steps):
                         d_step = d_optimizer.minimize(
@@ -622,6 +623,8 @@ class CoreModelTPU(object):
                         (train_steps, current_step))
         tf.gfile.MakeDirs(os.path.join(self.model_dir, 'generated_images'))
 
+        self.generate_images(generate_input_fn, current_step)
+
         while current_step < train_steps:
             next_checkpoint = int(min(current_step + self.train_steps_per_eval,
                                     train_steps))
@@ -641,21 +644,22 @@ class CoreModelTPU(object):
             self.generate_images(generate_input_fn, current_step)
 
     def generate_images(self, generate_input_fn, image_name):
-            tf.logging.info('Start generating images')
-            # Render some generated images
-            rounds_gen_imgs = max(int(np.ceil(self.num_viz_images / self.batch_size)), 1)
-            tf.logging.debug('Gonna generate images in %s rounds', rounds_gen_imgs)
-            images = []
-            for i in range(rounds_gen_imgs):
-                tf.logging.debug('Predict round %s/%s', i, rounds_gen_imgs)
-                generated_iter = self.est.predict(input_fn=generate_input_fn('PREDICT'))
-                images += [p['generated_images'][:, :, :] for p in generated_iter]
-            if len(images) != self.num_viz_images :
-                tf.logging.warning('Made %s images (when it should have been %s)',
-                    len(images), self.num_viz_images )
-                images = images[:self.num_viz_images ]
-            tf.logging.debug('Genreated %s %s images', len(images), images[0].shape)
+        tf.logging.info('Start generating images')
+        # Render some generated images
+        rounds_gen_imgs = max(int(np.ceil(self.num_viz_images / self.batch_size)), 1)
+        tf.logging.debug('Gonna generate images in %s rounds', rounds_gen_imgs)
+        images = []
+        for i in range(rounds_gen_imgs):
+            tf.logging.debug('Predict round %s/%s', i, rounds_gen_imgs)
+            generated_iter = self.est.predict(input_fn=generate_input_fn('PREDICT'))
+            images += [p['generated_images'][:, :, :] for p in generated_iter]
+        if len(images) != self.num_viz_images :
+            tf.logging.warning('Made %s images (when it should have been %s)',
+                len(images), self.num_viz_images )
+            images = images[:self.num_viz_images ]
+        tf.logging.debug('Genreated %s %s images', len(images), images[0].shape)
 
+        try:
             # TODO This is a cheap fix, need to change it to a more dynamic thign
             if self.num_viz_images < 100:
                 tiled_image = images[0]
@@ -669,7 +673,23 @@ class CoreModelTPU(object):
                                 'generated_images', 'gen_%s.png' % (step_string))
             save_array_as_image(tiled_image, filename)
 
+            filename = os.path.join(self.model_dir,
+                                'generated_images', 'gen_%s_brainWin.png' % (step_string))
+            save_windowed_image(tiled_image, filename)
+
             tf.logging.info('Finished generating images')
+
+        except MemoryError as e:
+            tf.logging.error('%s, trying to save a single image')
+            tf.logging.error('Memory usage at {}'.format(psutil.virtual_memory()))
+            try:
+                step_string = str(image_name).zfill(6)
+                filename = os.path.join(self.model_dir,
+                                    'generated_images', 'gen_%s_bkup.png' % (step_string))
+                save_array_as_image(images[0], filename)
+                tf.logging.info('Single image saved!')
+            except MemoryError as e:
+                tf.logging.error('%s: NO IMAGES WERE GENERATED', e)
 
     def set_up_encoder(self, batch_size):
         """ Creates the TF Estimator for the encoder predictions.
@@ -773,5 +793,9 @@ class CoreModelTPU(object):
         filename = os.path.join(self.model_dir,
                             'generated_images', 'sampled_data.png')
         save_array_as_image(tiled_image, filename)
+
+        filename = os.path.join(self.model_dir,
+                            'generated_images', 'sampled_data_brainWin.png')
+        save_windowed_image(tiled_image, filename)
 
         tf.logging.info('File with sample images created.')

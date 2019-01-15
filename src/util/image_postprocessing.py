@@ -39,12 +39,14 @@ def save_array_as_image(array, filename, do_histogram=True, bins=100):
 
     if do_histogram:
         # Plot of the rescaled image, before applying windowing:
+        plt.figure()
         plt.hist(array.flatten(), bins=bins)
         plt.title('HIST: %s' % filename)
         filename = filename.split('.')
         filename = '.'.join(filename[:-1] + ['_hist'] + [filename[-1]])
         with tf.gfile.Open(filename, 'w') as f:
             plt.savefig(f, format='png')
+        # plt.close() # It's kinda neat to have all the hists reported
 
 
     return img
@@ -69,8 +71,8 @@ def slice_windowing(img, window, up_val=1, low_val=0):
     alpha[alpha<0]=0
     alpha[alpha>1]=1
 
-    # img = alpha * up_val + (1-alpha) * low_val
-    img = alpha * max_density + (1-alpha) * min_density
+    img = alpha * up_val + (1-alpha) * low_val
+    # img = alpha * max_density + (1-alpha) * min_density
 
     return img
 

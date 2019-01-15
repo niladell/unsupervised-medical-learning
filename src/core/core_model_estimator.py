@@ -21,6 +21,7 @@ from tensorflow.contrib.cluster_resolver import TPUClusterResolver #pylint: disa
 from tensorflow.python.estimator import estimator
 
 from util.image_postprocessing import save_array_as_image, save_windowed_image
+from util.tensorboard_logging import Logger as TFSLogger
 
 tfgan = tf.contrib.gan
 queues = tf.contrib.slim.queues
@@ -169,6 +170,8 @@ class CoreModelTPU(object):
         # Save the params (or the updated version with unrelevant changes)
         with tf.gfile.GFile(self.model_dir + '/params.txt', 'wb') as f:
             f.write(json.dumps(model_params, indent=4, sort_keys=True))
+
+        self.custom_tfs = TFSLogger(log_dir=self.model_dir)
 
 
     def equal_parms(self, model_params, old_params):
@@ -643,7 +646,7 @@ class CoreModelTPU(object):
 
             self.generate_images(generate_input_fn, current_step)
 
-    def generate_images(self, generate_input_fn, image_name):
+    def generate_images(self, generate_input_fn, current_step):
         tf.logging.info('Start generating images')
         # Render some generated images
         rounds_gen_imgs = max(int(np.ceil(self.num_viz_images / self.batch_size)), 1)
@@ -653,6 +656,7 @@ class CoreModelTPU(object):
             tf.logging.debug('Predict round %s/%s', i, rounds_gen_imgs)
             generated_iter = self.est.predict(input_fn=generate_input_fn('PREDICT'))
             images += [p['generated_images'][:, :, :] for p in generated_iter]
+
         if len(images) != self.num_viz_images :
             tf.logging.warning('Made %s images (when it should have been %s)',
                 len(images), self.num_viz_images )
@@ -660,6 +664,21 @@ class CoreModelTPU(object):
         tf.logging.debug('Genreated %s %s images', len(images), images[0].shape)
 
         try:
+            step_string = str(current_step).zfill(6)
+            n_log_imgs = 15 if 15 < len(images) else len(images)
+            self.custom_tfs.log_images(
+                            tag='gen_%s' % step_string,
+                            images=images[:n_log_imgs],
+                            step=current_step)
+            for idx, img in enumerate(images[:n_log_imgs]):
+                self.custom_tfs.log_histogram(
+                                tag='gen_hist_img%s' % idx,
+                                values=img,
+                                step=current_step,
+                                bins=100)
+            tf.logging.debug('Images and histogram saved to the tf.summary via \
+                              custom TF Summary Logger')
+
             # TODO This is a cheap fix, need to change it to a more dynamic thign
             if self.num_viz_images < 100:
                 tiled_image = images[0]
@@ -668,7 +687,6 @@ class CoreModelTPU(object):
                                 for i in range(0, self.num_viz_images , 10)]
                 tiled_image = np.concatenate(image_rows, axis=1)
 
-            step_string = str(image_name).zfill(6)
             filename = os.path.join(self.model_dir,
                                 'generated_images', 'gen_%s.png' % (step_string))
             save_array_as_image(tiled_image, filename)
@@ -683,7 +701,7 @@ class CoreModelTPU(object):
             tf.logging.error('%s, trying to save a single image')
             tf.logging.error('Memory usage at {}'.format(psutil.virtual_memory()))
             try:
-                step_string = str(image_name).zfill(6)
+                step_string = str(current_step).zfill(6)
                 filename = os.path.join(self.model_dir,
                                     'generated_images', 'gen_%s_bkup.png' % (step_string))
                 save_array_as_image(images[0], filename)

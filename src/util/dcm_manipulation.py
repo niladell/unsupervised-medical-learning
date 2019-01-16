@@ -7,8 +7,22 @@ Interesting resources:
 Thoughts on PCA results:
 - Subjects 8 and 100 are separated from the rest of the lot, along the PC1 axis!
 - So what does PC1 encode??
-    - bear in mind that subjects
+    - bear in mind that subjects 0 and 100 don't have the component at all!
     - Number 8 has a big yaw (the head is quite tilted)
+- We reconstructing the images using individual PC, you only start to see differences between slices after combining at
+least 3 components!
+
+- Variance explained by PC:
+    - PC1: 0.22435345
+    - PC2: 0.12327218
+    - PC3: 0.0656076
+    - PC4: 0.04517845
+
+CONCLUSION ON THIS 14 SUBJECT DATASET: PCA DOES NOT SEEM TO ENCODE HIGH LEVEL CHARACTERISTICS!
+
+    # Todo:
+    # - try out different types of PCA (KernelPCA, SparsePCA, TruncatedSVD, IncrementalPCA)
+    # - run the computationally more expensive things on Euler
 
 '''
 
@@ -35,7 +49,6 @@ import plotly
 import plotly.plotly as py
 import plotly.graph_objs as go
 from plotly.graph_objs import *
-plotly.tools.set_credentials_file(username='InesPereira', api_key='wvXCCdZJ04XVr5mDhjn3')
 import pickle
 import time
 
@@ -201,8 +214,6 @@ if __name__ == "__main__":
 
 
     # Performing PCA
-    n_components = 2
-    pca = PCA(n_components=n_components)
     pca = PCA(.95) # It means that scikit-learn choose the minimum number of principal components
     # such that 95% of the variance is retained.
 
@@ -226,35 +237,6 @@ if __name__ == "__main__":
     # Trying to reconstruct the image
     # Thanks to: https://github.com/mGalarnyk/Python_Tutorials/blob/master/Sklearn/PCA/PCA_Image_Reconstruction_and_such.ipynb
     approximation = pca.inverse_transform(x_train)
-
-    # Plotting
-    plt.figure(figsize=(8, 4));
-    # Original Image
-    plt.subplot(1, 2, 1);
-    plt.imshow(x_array[0, :, :].reshape(512, 512),
-               cmap=plt.cm.gray, interpolation='nearest');
-    # plt.xlabel('?? components', fontsize=14)  # How many components do we really have?
-    plt.title('Original Image', fontsize=20);
-    plt.show()
-
-
-    # ??? principal components
-    plt.subplot(1, 2, 2);
-    plt.imshow(approximation[0].reshape(512, 512),
-               cmap=plt.cm.gray, interpolation='nearest');
-    plt.xlabel('?? components', fontsize=14)
-    plt.title('95% of Explained Variance', fontsize=20);
-    plt.show()
-
-    # Trying to get the meaning out the principal components:
-    plt.plot(np.cumsum(pca.explained_variance_ratio_))
-    plt.xlabel('number of components')
-    plt.ylabel('cumulative explained variance')
-    plt.show()
-
-    # Todo:
-    # - try out different types of PCA (KernelPCA, SparsePCA, TruncatedSVD, IncrementalPCA)
-    # - run the computationally more expensive things on Euler
 
 
     #######################################
@@ -282,58 +264,68 @@ if __name__ == "__main__":
 
     # Creating approximations with all components:
     approximation = pca_model.inverse_transform(x_transformed)
-    slice_approx = approximation[10,:] # pick a slice to plot
+    slice_approx = approximation[1235, :]  # pick a slice to plot
     approx_reshaped = slice_approx.reshape(512, 512)  # reshape so you get back your image :)
     greyscale_plot(approx_reshaped)
 
-
     # Trying to isolate single PC:
     # https://stackoverflow.com/questions/32750915/pca-inverse-transform-manually
+
+    # # Isolating PC1:
     PC1 = pca_model.components_[0,:]
-    U_reduced = np.zeros(pca_model.components_.shape)  # Creating a new U matrix which will have only one PC
-    U_reduced[0,:] = PC1  # here we let U_reduced have only PC1
-    PC1_approx = np.dot(x_transformed, U_reduced) + pca_model.mean_  # recreating approximation with only PC1
-    # Save your arrays and spare your computer :)
-    np.save('src/util/PC1_approximation.npy', PC1_approx)
-    greyscale_plot(PC1_approx[10,:].reshape(512, 512))  # resembles an x-ray
-
+    # U_reduced = np.zeros(pca_model.components_.shape)  # Creating a new U matrix which will have only one PC
+    # U_reduced[0,:] = PC1  # here we let U_reduced have only PC1
+    # PC1_approx = np.dot(x_transformed, U_reduced) + pca_model.mean_  # recreating approximation with only PC1
+    # # Save your arrays and spare your computer :)
+    # # np.save('src/util/PC1_approximation.npy', PC1_approx)
+    # greyscale_plot(PC1_approx[20,:].reshape(512, 512))  # resembles an x-ray
+    #
+    # # Isolating PC2:
     PC2 = pca_model.components_[1,:]
-    U_reduced = np.zeros(pca_model.components_.shape)
-    U_reduced[1,:]=PC2
-    PC2_approx = np.dot(x_transformed, U_reduced) + pca_model.mean_
-    # Save your arrays and spare your computer :)
-    np.save('src/util/PC2_approximation.npy', PC2_approx)
-    greyscale_plot(PC2_approx[12,:].reshape(512, 512))  # maybe encoding pixel values?
-
+    # U_reduced = np.zeros(pca_model.components_.shape)
+    # U_reduced[1,:]=PC2
+    # PC2_approx = np.dot(x_transformed, U_reduced) + pca_model.mean_
+    # # Save your arrays and spare your computer :)
+    # # np.save('src/util/PC2_approximation.npy', PC2_approx)
+    # greyscale_plot(PC2_approx[120,:].reshape(512, 512))  # maybe encoding pixel values?
+    #
+    # # Isolating PC3:
     PC3 = pca_model.components_[2,:]
-    U_reduced = np.zeros(pca_model.components_.shape)
-    U_reduced[2,:]=PC3
-    PC3_approx = np.dot(x_transformed, U_reduced) + pca_model.mean_
-    # Save your arrays and spare your computer :)
-    np.save('src/util/PC3_approximation.npy', PC3_approx)
-    greyscale_plot(PC3_approx[12,:].reshape(512, 512))
+    # U_reduced = np.zeros(pca_model.components_.shape)
+    # U_reduced[2,:]=PC3
+    # PC3_approx = np.dot(x_transformed, U_reduced) + pca_model.mean_
+    # # Save your arrays and spare your computer :)
+    # # np.save('src/util/PC3_approximation.npy', PC3_approx)
+    # greyscale_plot(PC3_approx[1209,:].reshape(512, 512))
+    #
+    # # Isolating PC4:
+    PC4 = pca_model.components_[3,:]
+    # U_reduced = np.zeros(pca_model.components_.shape)
+    # U_reduced[3,:] = PC4
+    # PC4_approx = np.dot(x_transformed, U_reduced) + pca_model.mean_
+    # # Save your arrays and spare your computer :)
+    # # np.save('src/util/PC3_approximation.npy', PC3_approx)
+    # greyscale_plot(PC4_approx[1209,:].reshape(512, 512))
 
-    # Now let's combine them
+    # Now let's combine PC!
     U_reduced = np.zeros(pca_model.components_.shape)
-    U_reduced[0,:]=PC1
-    U_reduced[1,:]=PC2
+    U_reduced[0,:] = PC1
+    U_reduced[1,:] = PC2
     PC12_approx = np.dot(x_transformed, U_reduced) + pca_model.mean_
-    greyscale_plot(PC12_approx[12,:].reshape(512, 512))
+    greyscale_plot(PC12_approx[1326,:].reshape(512, 512))
 
     U_reduced = np.zeros(pca_model.components_.shape)
     U_reduced[0,:] = PC1
     U_reduced[1,:] = PC2
     U_reduced[2,:] = PC3
     PC123_approx = np.dot(x_transformed, U_reduced) + pca_model.mean_
-    greyscale_plot(PC123_approx[12,:].reshape(512, 512))
+    greyscale_plot(PC123_approx[1269,:].reshape(512, 512))
 
     # Removing components:
     U_reduced = pca_model.components_
-    U_reduced[2,:] = 0
+    U_reduced[1,:] = 0
     PC_less1_approx = np.dot(x_transformed, U_reduced) + pca_model.mean_
-    greyscale_plot(PC_less1_approx[10,:].reshape(512, 512))
-
-
+    greyscale_plot(PC_less1_approx[1235,:].reshape(512, 512))
 
 
 

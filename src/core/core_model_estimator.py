@@ -383,35 +383,39 @@ class CoreModelTPU(object):
     def combine_losses(self, d_loss, g_loss, e_loss):
         """ Combine the losses and return the final loss that is gonna be used on training
         Args:
-            d_loss:
-            g_loss:
-            e_loss:
+            d_loss: Discriminator (or critic) loss
+            g_loss: Generator loss
+            e_loss: Encoder loss
+
+        Retruns:
+            The losses for the Discriminator, Generator, Encoder
         """
-        with tf.variable_scope('loss_commbine'):
-            with tf.variable_scope('Discriminator'):
-                #   Discriminator:
-                if self.use_encoder and self.encoder == 'ATTACHED':
-                    d_loss = d_loss + self.e_loss_lambda * e_loss
-                d_loss = tf.reduce_mean(d_loss)
+        if e_loss is not None:
+            with tf.variable_scope('loss_commbine'):
+                with tf.variable_scope('Discriminator'):
+                    #   Discriminator:
+                    if self.use_encoder and self.encoder == 'ATTACHED':
+                        d_loss = d_loss + self.e_loss_lambda * e_loss
+                    d_loss = tf.reduce_mean(d_loss)
 
-            with tf.variable_scope('Generator'):
-                #   Generator:
-                # Do we use the encoder loss to train on G or is it independent
-                e_loss_on_g = True
-                if self.use_encoder and e_loss_on_g:
-                    g_loss = g_loss + self.e_loss_lambda * e_loss
-                g_loss = tf.reduce_mean(g_loss)
+                with tf.variable_scope('Generator'):
+                    #   Generator:
+                    # Do we use the encoder loss to train on G or is it independent
+                    e_loss_on_g = True
+                    if self.use_encoder and e_loss_on_g:
+                        g_loss = g_loss + self.e_loss_lambda * e_loss
+                    g_loss = tf.reduce_mean(g_loss)
 
-            with tf.variable_scope('Encoder'):
-                #  Encoder:
-                if self.use_encoder:
-                    e_loss = tf.reduce_mean(e_loss)
+                with tf.variable_scope('Encoder'):
+                    #  Encoder:
+                    if self.use_encoder:
+                        e_loss = tf.reduce_mean(e_loss)
 
-            tf.logging.debug('training D loss: %s',d_loss)
-            tf.logging.debug('training G loss: %s',g_loss)
-            tf.logging.debug('training E loss: %s',e_loss)
+                tf.logging.debug('training D loss: %s',d_loss)
+                tf.logging.debug('training G loss: %s',g_loss)
+                tf.logging.debug('training E loss: %s',e_loss)
 
-            return d_loss, g_loss, e_loss
+        return d_loss, g_loss, e_loss
 
     def generate_model_fn(self):
 

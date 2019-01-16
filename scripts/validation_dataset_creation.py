@@ -1,6 +1,5 @@
 import pandas as pd
 import os
-import re
 
 os.chdir('scripts')
 
@@ -22,3 +21,13 @@ H = df.loc[:, df.columns.isin(columns)]
 H = H[H.sum(axis=1)!=0]
 names = H.loc[:,'name']
 names.to_csv('hemorrhages.csv', index=False)
+
+# Extracting those with a calvarial fracture
+fracture = ['Fracture', 'CalvarialFracture', 'OtherFracture']
+columns = [(x+y) for x in radiologists for y in fracture]
+columns.append('name')
+
+F = df.loc[:, df.columns.isin(columns)]
+F = F[F.sum(axis=1)>1] # sum has to be strictly greater than 1 to exclude possible isolated mistakes in labelling.
+names = F.loc[:,'name']
+names.to_csv('fractures.csv', index=False)

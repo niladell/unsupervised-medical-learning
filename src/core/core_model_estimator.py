@@ -20,7 +20,7 @@ from tensorflow.contrib import tpu
 from tensorflow.contrib.cluster_resolver import TPUClusterResolver #pylint: disable=E0611
 from tensorflow.python.estimator import estimator
 
-from util.image_postprocessing import save_array_as_image, save_windowed_image
+from util.image_postprocessing import save_array_as_image, save_windowed_image, slice_windowing
 from util.tensorboard_logging import Logger as TFSLogger
 
 tfgan = tf.contrib.gan
@@ -48,6 +48,7 @@ class CoreModelTPU(object):
                  encoder: str,
                  e_optimizer: str,
                  e_loss_lambda: float,
+                 use_window_loss: bool,
                  batch_size: int,
                  soft_label_strength: float,
                  iterations_per_loop: int,
@@ -78,6 +79,7 @@ class CoreModelTPU(object):
             encoder (str): Which encoder to use. 'ATTACHED' to the discriminator or 'INDEPENDENT' from it.
             e_optimizer (str): Optimizer to use in the encoder. Defaults to ADAM.
             e_loss_lambda (str): Factor by which the encoder loss is scaled (`Loss = Adv_oss + lambda * Enc_loss`)
+            window_loss (bool): If to use a second adversarial loss with the window version of the of the data and generated images.
             batch_size (int): Defaults to 1024.
             soft_label_strength (float). Value of the perturbation on soft labels (0 is same as hard labels).
             iterations_per_loop (int): Defaults to 500. Iteratios per loop on the estimator.
@@ -97,11 +99,12 @@ class CoreModelTPU(object):
         if model_dir[-1] == '/':
             model_dir = model_dir[:-1]
         self.model_dir =\
-          '{}/{}_{}{}z{}_{}{}{}{}{}_lr{}'.format(
+          '{}/{}_{}{}{}z{}_{}{}{}{}{}_lr{}'.format(
                     model_dir,
                     self.__class__.__name__,
                     'E' if use_encoder else '',
                     encoder[0] + '_' if use_encoder and encoder else '', # A bit of a stupid option
+                    'Win_' if use_window_loss else '',
                     noise_dim,
                     d_optimizer[0],
                     g_optimizer[0],
@@ -121,6 +124,9 @@ class CoreModelTPU(object):
         self.d_optimizer = self.get_optimizer(d_optimizer, learning_rate)
         self.noise_dim = noise_dim
         self.e_loss_lambda = e_loss_lambda
+
+        self.use_window_loss = use_window_loss
+        # TODO Add some weighting in respect to the 'normal' adv. loss?
 
         self.wgan_penalty = use_wgan_penalty
         self.wgan_lambda = wgan_lambda
@@ -221,7 +227,7 @@ class CoreModelTPU(object):
         # parameters e.g. ADAM: learning rate, epsilon, beta1, beta2..
         if name == 'ADAM':
             return tf.train.AdamOptimizer(
-                learning_rate=learning_rate, beta1=0.0, beta2=0.9)
+                learning_rate=learning_rate, beta1=0.0, beta2=0.9, epsilon=1e-4)
         elif name == 'SGD':
             return tf.train.GradientDescentOptimizer(
                 learning_rate=learning_rate)
@@ -265,7 +271,7 @@ class CoreModelTPU(object):
         raise NotImplementedError('No discriminator defined.')
 
 
-    def create_losses(self, d_logits_real, d_logits_generated, encoded_logits_generated, input_noise, real_images=None, generated_images=None):
+    def create_losses(self, d_logits_real, d_logits_generated, encoded_logits_generated, input_noise, real_images=None, generated_images=None, batch_size=None):
         """Compute the different losses
 
         Args:
@@ -471,6 +477,7 @@ class CoreModelTPU(object):
                 d_on_g_logits = self.discriminator(generated_images)
             d_on_g_logits = tf.squeeze(d_on_g_logits)
 
+
             tf.logging.debug('D real logits %s', d_on_g_logits)
             tf.logging.debug('D fake (G) logits %s', d_on_data_logits)
             tf.logging.debug('E (from G) logits %s', g_logits_encoded)
@@ -479,23 +486,42 @@ class CoreModelTPU(object):
             d_loss, g_loss, e_loss = self.create_losses(d_logits_real=d_on_data_logits,
                                                         d_logits_generated=d_on_g_logits,
                                                         encoded_logits_generated=g_logits_encoded,
-                                                        random_noise=random_noise,
+                                                        input_noise=random_noise,
                                                         real_images=real_images,
-                                                        genrated_images=generated_images)
+                                                        generated_images=generated_images,
+                                                        batch_size=batch_size)
+
+            if self.use_window_loss:
+                with tf.variable_scope('Window'):
+                    # TODO is this the optimal brain window?
+                    window = (-0.3, -0.2)
+                    # perturb_down = 0.1 * np.random.random() - 0.05
+                    # perturb_up = 0.1 * np.random.random() - 0.05
+                    # windwo = (perturb_down + window[0], perturb_up + window[1])
+                    real_window = slice_windowing(real_images, window=window, up_val=1, low_val=0)
+                    generated_window = slice_windowing(real_images, window=window, up_val=1, low_val=0)
+                    d_on_real_window = tf.squeeze(self.discriminator(real_window))
+                    d_on_g_window = tf.squeeze(self.discriminator(generated_window))
+                    d_loss_window, g_loss_window, _ = self.create_losses(d_logits_real=d_on_data_logits,
+                                                                        d_logits_generated=d_on_g_logits,
+                                                                        encoded_logits_generated=g_logits_encoded,
+                                                                        input_noise=random_noise,
+                                                                        real_images=real_images,
+                                                                        generated_images=generated_images,
+                                                                        batch_size=batch_size)
+                    d_loss = d_loss + d_loss_window
+                    g_loss = g_loss + g_loss_window
 
             # Combine losses
             d_loss_train, g_loss_train, e_loss_train = self.combine_losses(d_loss, g_loss, e_loss)
+            # d_loss_train, g_loss_train, e_loss_train = d_loss, g_loss, e_loss
+
 
             if mode == tf.estimator.ModeKeys.TRAIN:
-                #########
-                # TRAIN #
-                #########
+                ####################################
+                #              TRAIN              #
+                ###################################
 
-                # ? TODO is this the best way to deal with the optimziers?
-                # d_optimizer = tf.train.GradientDescentOptimizer(
-                #     learning_rate=self.learning_rate)
-                # d_optimizer = tf.train.AdamOptimizer(
-                #     learning_rate=self.learning_rate, beta1=0.5)
                 d_optimizer = self.d_optimizer
                 g_optimizer = self.g_optimizer
                 e_optimizer = self.e_optimizer

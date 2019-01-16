@@ -285,9 +285,9 @@ class CoreModelTPU(object):
         """
         with tf.variable_scope('loss_compute'):
             if self.wgan_penalty:
-                assert real_images and generated_images
+                assert real_images is not None and generated_images is not None
                 with tf.variable_scope('wgan_loss'):
-
+                    # TODO Not working, WGAN value explodes
                     # WGAN uses a critic intead of a discriminator (i.e. at the end of the day we are
                     # not interested on the real-fake dilema, but on how similar is the fake one to a
                     # real one (wavy interpretation))
@@ -297,26 +297,26 @@ class CoreModelTPU(object):
                     tf.logging.debug('WGAN -- D loss: %s', d_loss)
                     tf.logging.debug('WGAN -- G loss: %s', g_loss)
 
-                    # WGAN with gradient penalty. As descibred in Improved WGANS (arXiv:1704.00028)
-                    eps = tf.random_uniform([], 0.0, 1.0)
-                    x_hat = real_images*eps + (1-eps)*generated_images
-                    ## TODO Ideally I'd use tf.random_uniform([batch_size,1], 0, 1)
-                    ## , with something like the following lines (but it doesn't work)
-                    # difference = real_images - generated_images
-                    # intermediate = tf.map_fn(
-                    #                 lambda elm: tf.multiply(elm[0], elm[1], name='x_hat_mult'),
-                    #                 eps, difference)
-                    # x_hat = generated_images + intermediate
+                    difference = real_images - generated_images
+                    eps_shape = [batch_size] + [1] * (difference.shape.ndims - 1)
+                    eps = tf.random_uniform(shape=eps_shape)
+                    x_hat = generated_images + (eps * difference)
+                    # with tf.name_scope(None):
+                    #     with tf.variable_scope('Discriminator','gpenalty_dscope',
+                    #                             reuse=tf.AUTO_REUSE):
                     d_hat = self.discriminator(x_hat)
                     tf.logging.debug('WGAN -- Eps: %s', eps)
                     tf.logging.debug('WGAN -- x^ : %s', x_hat)
                     tf.logging.debug('WGAN -- D^ : %s', d_hat)
-                    gradients = tf.gradients(d_hat, [x_hat])[0]
+                    gradients = tf.gradients(d_hat, x_hat)[0]
                     tf.logging.debug('WGAN -- Grad_x(D): %s', gradients)
-                    wgan_penalty = tf.sqrt(tf.reduce_sum(tf.square(gradients), axis=[1,2,3]))
-                    wgan_penalty = (wgan_penalty - 1)**2
-                    d_loss += self.wgan_lambda*wgan_penalty
-                    tf.logging.debug('WGAN -- Penalty: %s', d_loss)
+                    wgan_penalty = tf.sqrt(tf.reduce_sum(tf.square(gradients), axis=[1,2,3]) + 1e10)
+                    wgan_penalty = tf.square(wgan_penalty - 1)
+
+                    tf.logging.debug('WGAN -- Penalty: %s', wgan_penalty)
+                    d_loss = d_loss + self.wgan_lambda*wgan_penalty
+                    tf.logging.debug('WGAN -- Loss: %s', d_loss)
+
             else:
                 with tf.variable_scope('classicGAN_loss'):
                     # Create the labels

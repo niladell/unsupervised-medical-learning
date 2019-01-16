@@ -26,11 +26,9 @@ CONCLUSION ON THIS 14 SUBJECT DATASET: PCA DOES NOT SEEM TO ENCODE HIGH LEVEL CH
 
 '''
 
-import matplotlib.pyplot as plt
 # from pydicom.data import get_testdata_files
 import os
 import pdb
-import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 import pandas as pd
@@ -42,7 +40,7 @@ import numpy as np
 import pydicom
 import matplotlib.pyplot as plt
 import re
-# import gdcm
+import gdcm
 from tqdm import tqdm
 import random
 import plotly
@@ -54,19 +52,20 @@ import time
 
 
 
-def generate_image_and_id_arrays(path):
-    # Loop to create an list with the pixel data per slice
+def generate_image_and_id_arrays(list_of_paths):
+    # Loop to create a list with the pixel data per slice
     x = []
     id = []
-    for file in tqdm(os.listdir(path)):
+    for file in tqdm((list_of_paths)):
         pattern = re.compile(r'.dcm$')
         m = re.search(pattern, file)
         if m is not None:
             # print(file)
             dcm = pydicom.dcmread(file)
             identity = dcm.get('PatientID')
-            x.append(dcm.pixel_array)
-            id.append(identity)
+            if dcm.pixel_array.shape == (512, 512) :
+                x.append(dcm.pixel_array)
+                id.append(identity)
 
     x_array = np.asarray(x) # convert to np.array for ease of manipulation
     id_array = np.asarray(id)
@@ -197,13 +196,24 @@ def interactive_plotting(principalDf, id_array):
 
 if __name__ == "__main__":
 
-    path1 = os.path.join(os.path.dirname(__file__), 'dcms_pix.npy')
-    path2 = os.path.join(os.path.dirname(__file__), 'dcms_id.npy')
-    x_array = np.load(path1)
-    print('Data array loaded.')
-    print(x_array.shape)
-    id_array = np.load(path2)
-    print('ID array loaded.')
+    # YOU HAVE TO BE IN THE DATASET FOLDER TO RUN THIS SCRIPT
+
+    os.chdir('/home/pereira_inez_gmail_com/bucket2/CT_head_trauma_unzipped')
+
+    x_array, id_array = generate_image_and_id_arrays('list_of_dcms.txt')
+    print('x_array and id_arrays have been generated!')
+    np.save('x_array.npy', x_array)
+    print('x_array saved in a npy file.')
+    np.save('id_array.npy', id_array)
+    print('id_array saved in a npy file.')
+
+    # path1 = os.path.join(os.path.dirname(__file__), 'dcms_pix.npy')
+    # path2 = os.path.join(os.path.dirname(__file__), 'dcms_id.npy')
+    # x_array = np.load(path1)
+    # print('Data array loaded.')
+    # print(x_array.shape)
+    # id_array = np.load(path2)
+    # print('ID array loaded.')
 
     # If available, upload data (issue with gdcm and MacOs).
     # Otherwise run the generate_image_and_id_arrays(path) function
@@ -215,13 +225,16 @@ if __name__ == "__main__":
 
     # Performing PCA
     pca = PCA(.95) # It means that scikit-learn choose the minimum number of principal components
+    print('PCA model created! Starting training...')
     # such that 95% of the variance is retained.
 
     x_train = PCA_function(x_array, pca)
+    print('Training complete! Let us now save the model as a pickle file...')
 
     # These things are computationally expensive, so save your models!
     filename = 'pca_'+str(pca.n_components)+'PC_'+str(time.strftime("%d_%m_%Y"))+'_'+str(time.strftime("%H:%M:%S"))+'.pickle'
     pickle.dump(pca, open(filename, 'wb'))
+    print('Model saved!')
 
     # Create a dataframe for all the data:
     columns = []
@@ -229,107 +242,103 @@ if __name__ == "__main__":
         string = 'principal component '+ str(i)
         columns.append(string)
 
+    print('Creating a dataframe to plot the data in 3D...')
     principalDf = pd.DataFrame(data=x_train, columns=columns)
 
+    print("Let's plot!")
     static_plotting(principalDf, id_array)
-    interactive_plotting(principalDf, id_array)
+    # interactive_plotting(principalDf, id_array)
+    print("Aaaand, we're done!")
 
-    # Trying to reconstruct the image
-    # Thanks to: https://github.com/mGalarnyk/Python_Tutorials/blob/master/Sklearn/PCA/PCA_Image_Reconstruction_and_such.ipynb
-    approximation = pca.inverse_transform(x_train)
-
-
-    #######################################
-    # WORKING ON PCA COMPUTED ON LEONHARD #
-    #######################################
-    filename = 'pca_0.95PC_13_01_2019_18:19:42.pickle'
-    pca_model = pickle.load(open('src/util/'+filename, 'rb'))
-    n_components = pca_model.n_components_
-
-    # Perform PCA transformation on data
-    x_reshaped = x_array.reshape(x_array.shape[0], 512*512)
-    x_transformed = pca_model.transform(x_reshaped)
-
-    # Create a dataframe for all the data:
-    columns = []
-    for i in range(1, n_components+1):
-        string = 'principal component '+ str(i)
-        columns.append(string)
-
-    principalDf = pd.DataFrame(data=x_transformed, columns=columns)
-
-    # Plotting the transformed data:
-    static_plotting(principalDf, id_array)
-    interactive_plotting(principalDf, id_array)
-
-    # Creating approximations with all components:
-    approximation = pca_model.inverse_transform(x_transformed)
-    slice_approx = approximation[1235, :]  # pick a slice to plot
-    approx_reshaped = slice_approx.reshape(512, 512)  # reshape so you get back your image :)
-    greyscale_plot(approx_reshaped)
-
-    # Trying to isolate single PC:
-    # https://stackoverflow.com/questions/32750915/pca-inverse-transform-manually
-
-    # # Isolating PC1:
-    PC1 = pca_model.components_[0,:]
-    # U_reduced = np.zeros(pca_model.components_.shape)  # Creating a new U matrix which will have only one PC
-    # U_reduced[0,:] = PC1  # here we let U_reduced have only PC1
-    # PC1_approx = np.dot(x_transformed, U_reduced) + pca_model.mean_  # recreating approximation with only PC1
-    # # Save your arrays and spare your computer :)
-    # # np.save('src/util/PC1_approximation.npy', PC1_approx)
-    # greyscale_plot(PC1_approx[20,:].reshape(512, 512))  # resembles an x-ray
+    # # Trying to reconstruct the image
+    # # Thanks to: https://github.com/mGalarnyk/Python_Tutorials/blob/master/Sklearn/PCA/PCA_Image_Reconstruction_and_such.ipynb
+    # approximation = pca.inverse_transform(x_train)
     #
-    # # Isolating PC2:
-    PC2 = pca_model.components_[1,:]
-    # U_reduced = np.zeros(pca_model.components_.shape)
-    # U_reduced[1,:]=PC2
-    # PC2_approx = np.dot(x_transformed, U_reduced) + pca_model.mean_
-    # # Save your arrays and spare your computer :)
-    # # np.save('src/util/PC2_approximation.npy', PC2_approx)
-    # greyscale_plot(PC2_approx[120,:].reshape(512, 512))  # maybe encoding pixel values?
     #
-    # # Isolating PC3:
-    PC3 = pca_model.components_[2,:]
-    # U_reduced = np.zeros(pca_model.components_.shape)
-    # U_reduced[2,:]=PC3
-    # PC3_approx = np.dot(x_transformed, U_reduced) + pca_model.mean_
-    # # Save your arrays and spare your computer :)
-    # # np.save('src/util/PC3_approximation.npy', PC3_approx)
-    # greyscale_plot(PC3_approx[1209,:].reshape(512, 512))
+    # #######################################
+    # # WORKING ON PCA COMPUTED ON LEONHARD #
+    # #######################################
+    # filename = 'pca_0.95PC_13_01_2019_18:19:42.pickle'
+    # pca_model = pickle.load(open('src/util/'+filename, 'rb'))
+    # n_components = pca_model.n_components_
     #
-    # # Isolating PC4:
-    PC4 = pca_model.components_[3,:]
+    # # Perform PCA transformation on data
+    # x_reshaped = x_array.reshape(x_array.shape[0], 512*512)
+    # x_transformed = pca_model.transform(x_reshaped)
+    #
+    # # Create a dataframe for all the data:
+    # columns = []
+    # for i in range(1, n_components+1):
+    #     string = 'principal component '+ str(i)
+    #     columns.append(string)
+    #
+    # principalDf = pd.DataFrame(data=x_transformed, columns=columns)
+    #
+    # # Plotting the transformed data:
+    # static_plotting(principalDf, id_array)
+    # interactive_plotting(principalDf, id_array)
+    #
+    # # Creating approximations with all components:
+    # approximation = pca_model.inverse_transform(x_transformed)
+    # slice_approx = approximation[1235, :]  # pick a slice to plot
+    # approx_reshaped = slice_approx.reshape(512, 512)  # reshape so you get back your image :)
+    # greyscale_plot(approx_reshaped)
+    #
+    # # Trying to isolate single PC:
+    # # https://stackoverflow.com/questions/32750915/pca-inverse-transform-manually
+    #
+    # # # Isolating PC1:
+    # PC1 = pca_model.components_[0,:]
+    # # U_reduced = np.zeros(pca_model.components_.shape)  # Creating a new U matrix which will have only one PC
+    # # U_reduced[0,:] = PC1  # here we let U_reduced have only PC1
+    # # PC1_approx = np.dot(x_transformed, U_reduced) + pca_model.mean_  # recreating approximation with only PC1
+    # # # Save your arrays and spare your computer :)
+    # # # np.save('src/util/PC1_approximation.npy', PC1_approx)
+    # # greyscale_plot(PC1_approx[20,:].reshape(512, 512))  # resembles an x-ray
+    # #
+    # # # Isolating PC2:
+    # PC2 = pca_model.components_[1,:]
+    # # U_reduced = np.zeros(pca_model.components_.shape)
+    # # U_reduced[1,:]=PC2
+    # # PC2_approx = np.dot(x_transformed, U_reduced) + pca_model.mean_
+    # # # Save your arrays and spare your computer :)
+    # # # np.save('src/util/PC2_approximation.npy', PC2_approx)
+    # # greyscale_plot(PC2_approx[120,:].reshape(512, 512))  # maybe encoding pixel values?
+    # #
+    # # # Isolating PC3:
+    # PC3 = pca_model.components_[2,:]
+    # # U_reduced = np.zeros(pca_model.components_.shape)
+    # # U_reduced[2,:]=PC3
+    # # PC3_approx = np.dot(x_transformed, U_reduced) + pca_model.mean_
+    # # # Save your arrays and spare your computer :)
+    # # # np.save('src/util/PC3_approximation.npy', PC3_approx)
+    # # greyscale_plot(PC3_approx[1209,:].reshape(512, 512))
+    # #
+    # # # Isolating PC4:
+    # PC4 = pca_model.components_[3,:]
+    # # U_reduced = np.zeros(pca_model.components_.shape)
+    # # U_reduced[3,:] = PC4
+    # # PC4_approx = np.dot(x_transformed, U_reduced) + pca_model.mean_
+    # # # Save your arrays and spare your computer :)
+    # # # np.save('src/util/PC3_approximation.npy', PC3_approx)
+    # # greyscale_plot(PC4_approx[1209,:].reshape(512, 512))
+    #
+    # # Now let's combine PC!
     # U_reduced = np.zeros(pca_model.components_.shape)
-    # U_reduced[3,:] = PC4
-    # PC4_approx = np.dot(x_transformed, U_reduced) + pca_model.mean_
-    # # Save your arrays and spare your computer :)
-    # # np.save('src/util/PC3_approximation.npy', PC3_approx)
-    # greyscale_plot(PC4_approx[1209,:].reshape(512, 512))
-
-    # Now let's combine PC!
-    U_reduced = np.zeros(pca_model.components_.shape)
-    U_reduced[0,:] = PC1
-    U_reduced[1,:] = PC2
-    PC12_approx = np.dot(x_transformed, U_reduced) + pca_model.mean_
-    greyscale_plot(PC12_approx[1326,:].reshape(512, 512))
-
-    U_reduced = np.zeros(pca_model.components_.shape)
-    U_reduced[0,:] = PC1
-    U_reduced[1,:] = PC2
-    U_reduced[2,:] = PC3
-    PC123_approx = np.dot(x_transformed, U_reduced) + pca_model.mean_
-    greyscale_plot(PC123_approx[1269,:].reshape(512, 512))
-
-    # Removing components:
-    U_reduced = pca_model.components_
-    U_reduced[1,:] = 0
-    PC_less1_approx = np.dot(x_transformed, U_reduced) + pca_model.mean_
-    greyscale_plot(PC_less1_approx[1235,:].reshape(512, 512))
-
-
-
-
-
-
-
+    # U_reduced[0,:] = PC1
+    # U_reduced[1,:] = PC2
+    # PC12_approx = np.dot(x_transformed, U_reduced) + pca_model.mean_
+    # greyscale_plot(PC12_approx[1326,:].reshape(512, 512))
+    #
+    # U_reduced = np.zeros(pca_model.components_.shape)
+    # U_reduced[0,:] = PC1
+    # U_reduced[1,:] = PC2
+    # U_reduced[2,:] = PC3
+    # PC123_approx = np.dot(x_transformed, U_reduced) + pca_model.mean_
+    # greyscale_plot(PC123_approx[1269,:].reshape(512, 512))
+    #
+    # # Removing components:
+    # U_reduced = pca_model.components_
+    # U_reduced[1,:] = 0
+    # PC_less1_approx = np.dot(x_transformed, U_reduced) + pca_model.mean_
+    # greyscale_plot(PC_less1_approx[1235,:].reshape(512, 512))

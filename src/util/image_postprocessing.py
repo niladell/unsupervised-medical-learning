@@ -3,6 +3,7 @@ import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import psutil
+import tensorflow as tf
 
 def save_array_as_image(array, filename, do_histogram=True, bins=100):
     """Converts a numpy array to a PIL Image and undoes any rescaling.
@@ -68,11 +69,16 @@ def slice_windowing(img, window, up_val=1, low_val=0):
     max_density = window[1]
 
     alpha = (img - min_density) / (max_density - min_density)
-    alpha[alpha<0]=0
-    alpha[alpha>1]=1
-
-    img = alpha * up_val + (1-alpha) * low_val
-    # img = alpha * max_density + (1-alpha) * min_density
+    try:
+        alpha[alpha<0]=0
+        alpha[alpha>1]=1
+    except TypeError:
+        tf.logging.warning('Slice window got tfTensor argument.')
+        alpha = tf.clip_by_value(alpha, 0, 1)
+    if up_val and low_val:
+        img = alpha * up_val + (1-alpha) * low_val
+    else:
+        img = alpha * max_density + (1-alpha) * min_density
 
     return img
 

@@ -11,8 +11,8 @@ except ImportError:
     USE_ALTERNATIVE = True
 
 
-HEIGHT = 512
-WIDTH = 512
+HEIGHT = 256
+WIDTH = 256
 CHANNELS = 1
 
 
@@ -40,11 +40,11 @@ def input_fn(params):
                 features={
                     "height": tf.FixedLenFeature([], tf.int64),
                     "width": tf.FixedLenFeature([], tf.int64),
-                    "image_raw": tf.FixedLenFeature([], tf.string),
+                    "image": tf.FixedLenFeature([], tf.string),
                 })
 
             # Decode the raw bytes so it becomes a tensor with type.
-            image = tf.decode_raw(features["image_raw"], tf.float32)
+            image = tf.decode_raw(features["image"], tf.float32)
 
             # Hard-code the shape
             image.set_shape([CHANNELS * HEIGHT * WIDTH])

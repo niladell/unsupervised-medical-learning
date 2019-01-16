@@ -108,6 +108,8 @@ if __name__ == "__main__":
         from datamanager.celebA_input_functions import generate_input_fn
     elif FLAGS.dataset.upper() == 'CQ500':
         from datamanager.cq500_input_functions import generate_input_fn
+    elif FLAGS.dataset.upper() == 'CQ500_256':
+        from datamanager.cq500_256_input_functions import generate_input_fn
 
     else:
         raise NameError('{} is not a proper dataset name.'.format(FLAGS.dataset))

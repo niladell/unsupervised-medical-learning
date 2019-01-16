@@ -26,8 +26,9 @@ class ResModel(CoreModelTPU):
                 x = d_block(x, filters=df_dim, name='d_block1')
                 tf.logging.debug(x)
                 # 256
-                x = d_block(x, filters=df_dim * 2, name='d_block2')
-                tf.logging.debug(x)
+                if self.dataset.upper() != 'CQ500_small':
+                    x = d_block(x, filters=df_dim * 2, name='d_block2')
+                    tf.logging.debug(x)
                 # 128
                 x = d_block(x, filters=df_dim * 2, name='d_block3')
                 tf.logging.debug(x)
@@ -106,10 +107,11 @@ class ResModel(CoreModelTPU):
                 tf.logging.debug(x)
                 x = g_block(x, gf_dim * 4, is_training, 'g_block4')  # 64 * 64
                 tf.logging.debug(x)
-                x = g_block(x, gf_dim * 4, is_training, 'g_block5')  # 128 * 128
+                x = g_block(x, gf_dim * 2, is_training, 'g_block5')  # 128 * 128
                 tf.logging.debug(x)
-                x = g_block(x, gf_dim * 2, is_training, 'g_block6')  # 256 * 256
-                tf.logging.debug(x)
+                if self.dataset.upper() != 'CQ500_small':
+                    x = g_block(x, gf_dim * 2, is_training, 'g_block6')  # 256 * 256
+                    tf.logging.debug(x)
                 x = g_block(x, gf_dim * 1, is_training, 'g_block7')  # 512 * 512
                 tf.logging.debug(x)
 

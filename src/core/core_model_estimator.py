@@ -323,6 +323,15 @@ class CoreModelTPU(object):
                     d_loss = d_loss + self.wgan_lambda*wgan_penalty
                     tf.logging.debug('WGAN -- Loss: %s', d_loss)
 
+                    # I am experiencing problems with exploding loss. My main candidate is the
+                    # euclidian norm on the gradients (at the end of the day it is a 512*512 tensor)
+                    # so it'd be normal for that value to be hughe.
+                    # For that reason. Now I'm clipping the maximum loss (which I doubt should be
+                    # bigger than 1000)
+                    d_loss = tf.clip_by_value(d_loss, -1000, 1000)
+                    g_loss = tf.clip_by_value(g_loss, -1000, 1000)
+
+
             else:
                 with tf.variable_scope('classicGAN_loss'):
                     # Create the labels

@@ -693,7 +693,7 @@ class CoreModelTPU(object):
             step_string = str(current_step).zfill(6)
             n_log_imgs = 15 if 15 < len(images) else len(images)
             custom_tfs.log_images(
-                            tag='gen_%s' % step_string,
+                            tag='individial/gen_%s' % step_string,
                             images=images[:n_log_imgs],
                             step=current_step)
             for idx, img in enumerate(images[:n_log_imgs]):
@@ -712,6 +712,12 @@ class CoreModelTPU(object):
                 image_rows = [np.concatenate(images[i:i+10], axis=0)
                                 for i in range(0, self.num_viz_images , 10)]
                 tiled_image = np.concatenate(image_rows, axis=1)
+
+                custom_tfs = TFSLogger(log_dir=self.model_dir)
+                custom_tfs.log_images(
+                            tag='packed/gen_%s' % step_string,
+                            images=[tiled_image],
+                            step=current_step)
 
             filename = os.path.join(self.model_dir,
                                 'generated_images', 'gen_%s.png' % (step_string))

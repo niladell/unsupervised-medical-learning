@@ -308,8 +308,14 @@ class CoreModelTPU(object):
                     # WGAN uses a critic intead of a discriminator (i.e. at the end of the day we are
                     # not interested on the real-fake dilema, but on how similar is the fake one to a
                     # real one (wavy interpretation))
-                    d_loss =  tf.reduce_mean(d_logits_generated) - tf.reduce_mean(d_logits_real)
-                    g_loss = -tf.reduce_mean(d_logits_generated)
+
+                    # WE don't reduce_mean here as we need to pass a tensor with the batch still present
+                    # in the EVAL mode. The reduction is done later, just before training.
+                    # d_loss =  tf.reduce_mean(d_logits_generated) - tf.reduce_mean(d_logits_real)
+                    # g_loss = -tf.reduce_mean(d_logits_generated)
+                    d_loss =  d_logits_generated - d_logits_real
+                    g_loss = -d_logits_generated
+
 
                     tf.logging.debug('WGAN -- D loss: %s', d_loss)
                     tf.logging.debug('WGAN -- G loss: %s', g_loss)
@@ -626,6 +632,7 @@ class CoreModelTPU(object):
                     #  This thing runs on the same TPU as training so it needs to be
                     # consistent with the TPU restrictions and the shapes imposed in
                     # training
+                    tf.logging.debug('Eval_fn')
                     with tf.variable_scope('metrics'):
                         d_on_data = tf.sigmoid(d_on_data_logits)
                         d_on_g = tf.sigmoid(d_on_g_logits)
@@ -641,18 +648,21 @@ class CoreModelTPU(object):
                         if self.use_encoder:
                             metrics['encoder_loss'] = tf.metrics.mean(e_loss)
                         if self.reconstruction_loss:
-                            metrics['reconstruction_loss']: tf.metrics.mean(g_loss)
+                            metrics['reconstruction_loss']: tf.metrics.mean(r_loss)
 
                         tf.logging.debug('Metrics %s', metrics)
 
                         return metrics
 
+                tf.logging.debug('Start eval')
                 if not self.use_encoder:
-                    e_loss = None # TODO Quick fix, this is a bit messy, needa refactor
+                    e_loss = tf.zeros_like(g_loss) # TODO Quick fix, this is a bit messy, needa refactor
+                    tf.logging.debug('Not using e_loss eval')
 
                 if not self.reconstruction_loss:
-                    r_loss = None # TODO Quick fix, this is a bit messy, needa refactor
-
+                    r_loss = tf.zeros_like(g_loss) # TODO Quick fix, this is a bit messy, needa refactor
+                    tf.logging.debug('Not using r_loss eval')
+                tf.logging.debug('Inputs to eval %s %s %s %s %s %s', d_loss, g_loss, e_loss, r_loss, d_on_data_logits, d_on_g_logits)
                 return tf.contrib.tpu.TPUEstimatorSpec(
                     mode=mode,
                     loss=tf.reduce_mean(g_loss),
@@ -727,7 +737,7 @@ class CoreModelTPU(object):
                         (train_steps, current_step))
         tf.gfile.MakeDirs(os.path.join(self.model_dir, 'generated_images'))
 
-        self.generate_images(generate_input_fn, current_step)
+        # self.generate_images(generate_input_fn, current_step)
 
         while current_step < train_steps:
             next_checkpoint = int(min(current_step + self.train_steps_per_eval,

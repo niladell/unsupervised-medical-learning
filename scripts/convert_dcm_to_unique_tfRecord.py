@@ -60,15 +60,25 @@ def convertToTfRecord(list_of_dcm_paths, out_file, scaling_factor, do_plot=False
             # I dont like this structur but this
             # continues below...
 
+        height = img_raw.shape[0]
+        width = img_raw.shape[1]
+        if height != 512 and width != 512:
+            print(' !!! Img {} has shape {}  -- file: {}'.format(idx, img_raw.shape, filepath), flush=True)
+            continue
+
         if scaling_factor:
             img_raw = rescale(img_raw,
                               scale=1 / scaling_factor,
                               anti_aliasing=True,
                               clip=True)
                               # preserve_range=False)
-        height = img_raw.shape[0]
-        width = img_raw.shape[1]
+            if img_raw.shape[0] != height / scaling_factor or \
+               img_raw.shape[1] != width / scaling_factor:
 
+                height = img_raw.shape[0]
+                width = img_raw.shape[1]
+                print(' !!! Img {} has shape {}  -- file: {}'.format(idx, img_raw.shape, filepath), flush=True)
+                continue
         if do_plot:
             # ... continuation from above
             print(height, width)
@@ -95,8 +105,8 @@ def convertToTfRecord(list_of_dcm_paths, out_file, scaling_factor, do_plot=False
                     'mask': _bytes_feature(mask.tobytes())}
             )
         )
-
-        print('{}/{} -- {}: {} (z{})'.format(idx, len(list_of_dcms), patientID, dcmname, z))
+        if idx % 10 == 0:
+            print('{}/{} -- {}: {} {} (z{})'.format(idx, len(list_of_dcms), patientID, dcmname,img_raw.shape, z), flush=True)
 
         writer.write(example.SerializeToString())
     writer.close()

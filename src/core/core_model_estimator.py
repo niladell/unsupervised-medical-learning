@@ -7,6 +7,7 @@ import json
 import numpy as np
 from pprint import pformat
 import psutil
+import gc
 
 import tensorflow as tf
 USE_ALTERNATIVE = False
@@ -758,6 +759,9 @@ class CoreModelTPU(object):
                 tf.logging.info(metrics)
 
             self.generate_images(generate_input_fn, current_step)
+            gc.collect()  # I'm experiencing some kind of memory leak (and seems that other people
+                          # did too). So, seeing that adding 52GBs of RAM doesn't help I'll just
+                          # take the garbage out manually for now.
 
     def generate_images(self, generate_input_fn, current_step):
         tf.logging.info('Start generating images')

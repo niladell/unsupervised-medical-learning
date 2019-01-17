@@ -15,7 +15,7 @@ HEIGHT = 512
 WIDTH = 512
 CHANNELS = 1
 
-
+ALPHA = -1.127
 
 ###############################################
 # DEFINING THE INPUT FUNCTIONS FOR CQ500      #
@@ -56,7 +56,7 @@ def input_fn(params):
                 random_noise = tf.random_normal([noise_dim])
             elif params['noise_cov'].upper() == 'POWER':
                 x = tf.range(1, noise_dim+1, dtype=tf.float32)
-                y = 100*tf.pow(x, -1.127)
+                y = 100*tf.pow(x, ALPHA)
                 random_noise = tf.random_normal(
                                 shape=[noise_dim],
                                 mean=tf.zeros_like(y),
@@ -113,9 +113,23 @@ def noise_input_fn(params):
         noise_dim = params['noise_dim']
         # Use constant seed to obtain same noise
         np.random.seed(0)
+
+        if params['noise_cov'].upper() == 'IDENTITY':
+            random_noise = tf.constant(tf.random_normal([batch_size, noise_dim]), dtype=tf.float32)
+        elif params['noise_cov'].upper() == 'POWER':
+            x = tf.range(1, noise_dim+1, dtype=tf.float32)
+            y = 100*tf.pow(x, ALPHA)
+            random_noise = tf.constant(tf.random_normal(
+                            shape=[batch_size, noise_dim],
+                            mean=tf.zeros_like(y),
+                            stddev=y), dtype=tf.float32)
+        else:
+            raise NameError('{} is not an implemented distribution'.format(params['noise_cov']))
+
         noise_dataset = tf.data.Dataset.from_tensors(
-            {'random_noise': tf.constant(
-                np.random.randn(batch_size, noise_dim), dtype=tf.float32)
+            {'random_noise': random_noise
+            # tf.constant(
+                # np.random.randn(batch_size, noise_dim), dtype=tf.float32)
             })
         noise = noise_dataset.make_one_shot_iterator().get_next()
         tf.logging.debug('Noise input %s', noise)

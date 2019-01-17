@@ -542,17 +542,19 @@ class CoreModelTPU(object):
                 if not self.use_encoder or self.use_encoder and self.encoder.upper() == 'INDEPENDENT':
                     raise NotImplementedError('Reconstruction loss not implemented for Independent encoder')
                     # TODO Implement for independent
+                with tf.variable_scope('reconstruction'):
+                    _, projected_img = self.discriminator(real_images, noise_dim=noise_dim)
+                    reconstructed_img = self.generator(projected_img)
 
-                _, projected_img = self.discriminator(real_images, noise_dim=noise_dim)
-                reconstructed_img = self.generator(projected_img)
-
-                r_loss = tf.losses.mean_squared_error(
-                    labels=tf.layers.flatten(real_images),
-                    predictions=tf.layers.flatten(reconstructed_img),
-                    reduction=tf.losses.Reduction.NONE)
-                r_loss = tf.reduce_sum(r_loss, axis=1)
-                r_loss_train = tf.reduce_mean(r_loss)
-
+                    r_loss = tf.losses.mean_squared_error(
+                        labels=tf.layers.flatten(real_images),
+                        predictions=tf.layers.flatten(reconstructed_img),
+                        reduction=tf.losses.Reduction.NONE)
+                    tf.logging.debug('R Loss %s', r_loss)
+                    r_loss = tf.reduce_sum(r_loss, axis=1)
+                    tf.logging.debug('R Loss %s', r_loss)
+                    r_loss_train = tf.reduce_mean(r_loss)
+                    tf.logging.debug('R Loss train %s', r_loss_train)
             # Combine losses
             d_loss_train, g_loss_train, e_loss_train = self.combine_losses(d_loss, g_loss, e_loss)
             # d_loss_train, g_loss_train, e_loss_train = d_loss, g_loss, e_loss

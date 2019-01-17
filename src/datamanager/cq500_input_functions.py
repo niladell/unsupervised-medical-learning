@@ -120,8 +120,8 @@ def noise_input_fn(params):
                               np.random.randn(batch_size, noise_dim),
                             dtype=tf.float32, name='pred_noise_generator')
         elif params['noise_cov'].upper() == 'POWER':
-            x = tf.range(1, noise_dim+1, dtype=tf.float32)
-            stdev = 100*tf.pow(x, ALPHA)
+            x = np.arange(1, noise_dim+1)
+            stdev = 10*x**ALPHA
             eps = np.random.randn(batch_size, noise_dim)
             # This is the equivalent to the tf.random_normal used on top
             # see: https://github.com/tensorflow/tensorflow/blob/a6d8ffae097d0132989ae4688d224121ec6d8f35/tensorflow/python/ops/random_ops.py#L72-L81

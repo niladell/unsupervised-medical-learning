@@ -52,12 +52,21 @@ def input_fn(params):
             # The type is now uint8 but we need it to be float.
             image = tf.reshape(image, [HEIGHT, WIDTH, CHANNELS]) * 2 - 1
 
-            random_noise = tf.random_normal([noise_dim])
+            if params['noise_cov'].upper() == 'NORMAL':
+                random_noise = tf.random_normal([noise_dim])
+            elif params['noise_cov'].upper() == 'POWER':
+                x = tf.range(1, noise_dim+1, dtype=tf.float32)
+                y = 100*tf.pow(x, -1.127)
+                random_noise = tf.random_normal(
+                                shape=[noise_dim],
+                                mean=tf.zeros_like(y),
+                                stddev=y)
+            else:
+                raise NameError('{} is not an implemented distribution'.format(params['noise_cov']))
 
             features = {
                 'real_images': image,
                 'random_noise': random_noise}
-
             return features, []
 
         # TODO we should use an eval dataset fINDEBFOor EVAL  # pylint: disable=fixme
@@ -135,5 +144,3 @@ if __name__ == '__main__':
     features, labels = input_fn(params)
     print(features)
     print(labels)
-
-

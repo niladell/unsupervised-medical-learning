@@ -41,6 +41,7 @@ class CoreModelTPU(object):
                  d_optimizer: str,
                  g_optimizer: str,
                  noise_dim: int,
+                 noise_cov: str,
                  use_wgan_penalty: bool,
                  wgan_lambda: float,
                  wgan_n: int,
@@ -73,6 +74,7 @@ class CoreModelTPU(object):
             d_optimizer (str): Optimizer to use in the discriminator. Defaults to SGD.
             g_optimizer (str): Optimizer to use in the generator. Defaults to ADAM.
             noise_dim (int): Size of the nose (or feature) space. Defaults to 64.
+            noise_cov (str): Covariance of the random noise to sample. Avail: 'IDENTITY', 'POWER
             use_wgan_penalty (bool)
             wgan_lambda (float): `D_loss = D_loss + lambda * WGAN_penalty`
             wgan_n (int): Number of times that the Discriminator (critic) is updated per step
@@ -101,13 +103,14 @@ class CoreModelTPU(object):
         if model_dir[-1] == '/':
             model_dir = model_dir[:-1]
         self.model_dir =\
-          '{}/{}_{}{}{}z{}_{}{}{}{}{}_lr{}'.format(
+          '{}/{}_{}{}{}z{}{}_{}{}{}{}{}_lr{}'.format(
                     model_dir,
                     self.__class__.__name__,
                     'E' if use_encoder else '',
                     encoder[0] + '_' if use_encoder and encoder else '', # A bit of a stupid option
                     'Win%s_' % lambda_window if use_window_loss else '',
                     noise_dim,
+                    'p' if noise_cov.upper() == 'POWER' else '',
                     d_optimizer[0],
                     g_optimizer[0],
                     e_optimizer[0] if e_optimizer else '', # TODO a bit of a mess with the encoder options
@@ -125,6 +128,7 @@ class CoreModelTPU(object):
         self.g_optimizer = self.get_optimizer(g_optimizer, learning_rate)
         self.d_optimizer = self.get_optimizer(d_optimizer, learning_rate)
         self.noise_dim = noise_dim
+        self.noise_cov = noise_cov
         self.e_loss_lambda = e_loss_lambda
 
         self.use_window_loss = use_window_loss
@@ -190,7 +194,7 @@ class CoreModelTPU(object):
             return True, model_params
 
         # If different this parameters should not affect the model or training outcome
-        non_relevant_data = ['use_tpu', 'tpu', 'tpu_zone', 'gcp_project', 'num_shards',
+        non_relevant_data = ['data_dir', 'use_tpu', 'tpu', 'tpu_zone', 'gcp_project', 'num_shards',
                              'num_viz_images', 'eval_loss', 'train_steps_per_eval',
                              'num_eval_images', 'batch_size', 'iterations_per_loop'] # What else should be here?
 
@@ -642,7 +646,8 @@ class CoreModelTPU(object):
 
         params = {
             'data_dir': self.data_dir,
-            'noise_dim': self.noise_dim
+            'noise_dim': self.noise_dim,
+            'noise_cov': self.noise_cov
             }
         return config, params
 

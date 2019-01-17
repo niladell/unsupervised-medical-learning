@@ -44,6 +44,9 @@ flags.DEFINE_string('dataset', 'CIFAR10',
                     "Which dataset to use. Avail: 'CIFAR' 'CELEBA'")
 flags.DEFINE_integer('noise_dim', 64,
                      'Number of dimensions for the noise vector')
+flags.DEFINE_string('noise_cov', 'IDENTITY',
+                    'Covariance type of the random noise to sample. ' +\
+                    'Avail: "IDENTITY", "POWER".')
 flags.DEFINE_string('g_optimizer', 'ADAM', 'Optimizer to use for the'
                      'generator (now supported: ADAM')
 flags.DEFINE_string('d_optimizer', 'SGD', 'Optimizer to use for the'
@@ -127,7 +130,7 @@ if __name__ == "__main__":
     model = Model(model_dir=FLAGS.model_dir, data_dir=FLAGS.data_dir, dataset=FLAGS.dataset,
                 # Model parameters
                 learning_rate=FLAGS.learning_rate, batch_size=FLAGS.batch_size, noise_dim=FLAGS.noise_dim,
-                soft_label_strength=FLAGS.soft_label,
+                noise_cov=FLAGS.noise_cov, soft_label_strength=FLAGS.soft_label,
                 use_window_loss=FLAGS.use_window_loss, lambda_window=FLAGS.window_lambda,
                 # WGAN
                 use_wgan_penalty=FLAGS.use_wgan, wgan_lambda=FLAGS.wgan_lambda, wgan_n=FLAGS.wgan_n,

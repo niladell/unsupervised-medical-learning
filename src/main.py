@@ -22,7 +22,7 @@ FLAGS = flags.FLAGS
 # Cloud TPU Cluster Resolvers
 flags.DEFINE_boolean('use_tpu', True, 'Use TPU for training')
 flags.DEFINE_string(
-    'tpu', default='node-1',
+    'tpu', default='',
     help='The Cloud TPU to use for training. This should be either the name '
     'used when creating the Cloud TPU, or a grpc://ip.address.of.tpu:8470 url.')
 flags.DEFINE_string(

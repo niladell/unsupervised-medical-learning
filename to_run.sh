@@ -13,7 +13,7 @@ screen -r node-$NODE -p 0 -X stuff 'python src/main.py --model_dir=gs://iowa_buc
 NODE=3
 #screen -r echo "node-${NODE} on!" || screen -dmS node-$NODE
 screen -dmS node-$NODE
-screen -r node-$NODE -p 0 -X stuff 'python src/main.py --model_dir=gs://iowa_bucket/CQ500/bulk_16_01 --data_dir=gs://iowa_bucket/CQ500/data --use_encoder=True --iterations_per_loop=35 --batch_size=32 --tpu=node-3 --dataset=cq500 --model=RESNET --noise_dim=256 --train_steps=500000 --d_optimizer=SGD --learning_rate=0.0002 --e_loss_lambda=1.0 --train_steps_per_eval=500 --use_window_loss=True --reconstruction_loss=True\n'
+screen -r node-$NODE -p 0 -X stuff 'python src/main.py --model_dir=gs://iowa_bucket/CQ500/bulk_16_01 --data_dir=gs://iowa_bucket/CQ500/data --use_encoder=True --iterations_per_loop=10 --batch_size=16 --tpu=node-3 --dataset=cq500 --model=RESNET --noise_dim=256 --train_steps=500000 --d_optimizer=SGD --learning_rate=0.0002 --e_loss_lambda=1.0 --train_steps_per_eval=500 --use_window_loss=True --reconstruction_loss=True\n'
 
 NODE=4
 #screen -r echo "node-${NODE} on!" || screen -dmS node-$NODE
@@ -73,7 +73,7 @@ screen -dmS node-$NODE
 screen -r node-$NODE -p 0 -X stuff 'python src/main.py --model_dir=gs://iowa_bucket/CQ500/bulk_16_01_256 --data_dir=gs://iowa_bucket/CQ500/data/train_256.tfrecords --use_encoder=True --iterations_per_loop=35 --batch_size=32 --tpu=node-15 --dataset=CQ500_256 --model=RESNET --noise_dim=256 --train_steps=500000 --d_optimizer=SGD --learning_rate=0.0002 --e_loss_lambda=1.0 --train_steps_per_eval=500\n'
 NODE=16
 screen -dmS node-$NODE
-screen -r node-$NODE -p 0 -X stuff 'python src/main.py --model_dir=gs://iowa_bucket/CQ500/bulk_16_01_256 --data_dir=gs://iowa_bucket/CQ500/data/train_256.tfrecords --use_encoder=True --iterations_per_loop=35 --batch_size=32 --tpu=node-16 --dataset=CQ500_256 --model=RESNET --noise_dim=68 --train_steps=500000 --d_optimizer=ADAM --learning_rate=0.0001 --e_loss_lambda=2.0 --train_steps_per_eval=500 --use_window_loss=True --window_lambda=5.0 --reconstruction_loss=True --noise_cov=POWER\n'
+screen -r node-$NODE -p 0 -X stuff 'python src/main.py --model_dir=gs://iowa_bucket/CQ500/bulk_16_01_256 --data_dir=gs://iowa_bucket/CQ500/data/train_256.tfrecords --use_encoder=True --iterations_per_loop=35 --batch_size=32 --tpu=node-16 --dataset=CQ500_256 --model=RESNET --noise_dim=64 --train_steps=500000 --d_optimizer=ADAM --learning_rate=0.0001 --e_loss_lambda=2.0 --train_steps_per_eval=500 --use_window_loss=True --window_lambda=5.0 --reconstruction_loss=True --noise_cov=POWER\n'
 
 NODE=17
 screen -dmS node-$NODE

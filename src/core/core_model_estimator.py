@@ -49,6 +49,7 @@ class CoreModelTPU(object):
                  e_optimizer: str,
                  e_loss_lambda: float,
                  use_window_loss: bool,
+                 lambda_window: float,
                  batch_size: int,
                  soft_label_strength: float,
                  iterations_per_loop: int,
@@ -80,6 +81,7 @@ class CoreModelTPU(object):
             e_optimizer (str): Optimizer to use in the encoder. Defaults to ADAM.
             e_loss_lambda (str): Factor by which the encoder loss is scaled (`Loss = Adv_oss + lambda * Enc_loss`)
             window_loss (bool): If to use a second adversarial loss with the window version of the of the data and generated images.
+            lambda_window (bool): `Adv. Loss = Regular adv. loss + lambda * Window Adv. loss
             batch_size (int): Defaults to 1024.
             soft_label_strength (float). Value of the perturbation on soft labels (0 is same as hard labels).
             iterations_per_loop (int): Defaults to 500. Iteratios per loop on the estimator.
@@ -104,7 +106,7 @@ class CoreModelTPU(object):
                     self.__class__.__name__,
                     'E' if use_encoder else '',
                     encoder[0] + '_' if use_encoder and encoder else '', # A bit of a stupid option
-                    'Win_' if use_window_loss else '',
+                    'Win%s_' % lambda_window if use_window_loss else '',
                     noise_dim,
                     d_optimizer[0],
                     g_optimizer[0],
@@ -126,7 +128,7 @@ class CoreModelTPU(object):
         self.e_loss_lambda = e_loss_lambda
 
         self.use_window_loss = use_window_loss
-        # TODO Add some weighting in respect to the 'normal' adv. loss?
+        self.lambda_window = lambda_window
 
         self.wgan_penalty = use_wgan_penalty
         self.wgan_lambda = wgan_lambda
@@ -518,8 +520,8 @@ class CoreModelTPU(object):
                                                                         real_images=real_images,
                                                                         generated_images=generated_images,
                                                                         batch_size=batch_size)
-                    d_loss = d_loss + d_loss_window
-                    g_loss = g_loss + g_loss_window
+                    d_loss = d_loss + self.lambda_window * d_loss_window
+                    g_loss = g_loss + self.lambda_window * g_loss_window
 
             # Combine losses
             d_loss_train, g_loss_train, e_loss_train = self.combine_losses(d_loss, g_loss, e_loss)

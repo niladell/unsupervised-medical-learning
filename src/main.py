@@ -64,6 +64,8 @@ flags.DEFINE_float('soft_label', 0.2,
 flags.DEFINE_boolean('use_window_loss', True,
                     'Use a second adversarial loss with the window version' +\
                     'of the of the data and generated images.')
+flags.DEFINE_float('window_lambda', 1.0,
+                    ' `Adv. Loss = Regular adv. loss + lambda * Window Adv. loss')
 
 flags.DEFINE_boolean('use_wgan', False,
                     'Whether to use WGAN penalty or not')
@@ -125,7 +127,8 @@ if __name__ == "__main__":
     model = Model(model_dir=FLAGS.model_dir, data_dir=FLAGS.data_dir, dataset=FLAGS.dataset,
                 # Model parameters
                 learning_rate=FLAGS.learning_rate, batch_size=FLAGS.batch_size, noise_dim=FLAGS.noise_dim,
-                soft_label_strength=FLAGS.soft_label, use_window_loss=FLAGS.use_window_loss,
+                soft_label_strength=FLAGS.soft_label,
+                use_window_loss=FLAGS.use_window_loss, lambda_window=FLAGS.window_lambda,
                 # WGAN
                 use_wgan_penalty=FLAGS.use_wgan, wgan_lambda=FLAGS.wgan_lambda, wgan_n=FLAGS.wgan_n,
                 # Encoder

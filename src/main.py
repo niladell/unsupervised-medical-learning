@@ -70,6 +70,10 @@ flags.DEFINE_boolean('use_window_loss', True,
 flags.DEFINE_float('window_lambda', 1.0,
                     ' `Adv. Loss = Regular adv. loss + lambda * Window Adv. loss')
 
+
+flags.DEFINE_boolean('reconstruction_loss', False,
+                    'Compute reconstruction of real images and minimze its loss')
+
 flags.DEFINE_boolean('use_wgan', False,
                     'Whether to use WGAN penalty or not')
 flags.DEFINE_float('wgan_lambda', 10.0,
@@ -136,6 +140,8 @@ if __name__ == "__main__":
                 use_wgan_penalty=FLAGS.use_wgan, wgan_lambda=FLAGS.wgan_lambda, wgan_n=FLAGS.wgan_n,
                 # Encoder
                 use_encoder=FLAGS.use_encoder, encoder=FLAGS.encoder, e_loss_lambda=FLAGS.e_loss_lambda,
+                # ¯\_(ツ)_/¯
+                reconstruction_loss=FLAGS.reconstruction_loss,
                 # Optimizers
                 g_optimizer=FLAGS.g_optimizer, d_optimizer=FLAGS.d_optimizer, e_optimizer=FLAGS.e_optimizer,
                 # Training and prediction settings

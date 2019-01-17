@@ -11,11 +11,11 @@ except ImportError:
     USE_ALTERNATIVE = True
 
 
-HEIGHT = 256
-WIDTH = 256
+HEIGHT = 512
+WIDTH = 512
 CHANNELS = 1
 
-
+ALPHA = -1.127
 
 ###############################################
 # DEFINING THE INPUT FUNCTIONS FOR CQ500      #
@@ -52,12 +52,22 @@ def input_fn(params):
             # The type is now uint8 but we need it to be float.
             image = tf.reshape(image, [HEIGHT, WIDTH, CHANNELS]) * 2 - 1
 
-            random_noise = tf.random_normal([noise_dim])
+            if params['noise_cov'].upper() == 'IDENTITY':
+                random_noise = tf.random_normal([noise_dim], name='noise_generator')
+            elif params['noise_cov'].upper() == 'POWER':
+                x = tf.range(1, noise_dim+1, dtype=tf.float32)
+                stdev = 100*tf.pow(x, ALPHA)
+                random_noise = tf.random_normal(
+                                shape=[noise_dim],
+                                mean=tf.zeros(noise_dim),
+                                stddev=stdev,
+                                name='pnoise_generator')
+            else:
+                raise NameError('{} is not an implemented distribution'.format(params['noise_cov']))
 
             features = {
                 'real_images': image,
                 'random_noise': random_noise}
-
             return features, []
 
         # TODO we should use an eval dataset fINDEBFOor EVAL  # pylint: disable=fixme
@@ -104,10 +114,25 @@ def noise_input_fn(params):
         noise_dim = params['noise_dim']
         # Use constant seed to obtain same noise
         np.random.seed(0)
+
+        if params['noise_cov'].upper() == 'IDENTITY':
+            random_noise = tf.constant(
+                              np.random.randn(batch_size, noise_dim),
+                            dtype=tf.float32, name='pred_noise_generator')
+        elif params['noise_cov'].upper() == 'POWER':
+            x = np.arange(1, noise_dim+1)
+            stdev = 10*x**ALPHA
+            eps = np.random.randn(batch_size, noise_dim)
+            # This is the equivalent to the tf.random_normal used on top
+            # see: https://github.com/tensorflow/tensorflow/blob/a6d8ffae097d0132989ae4688d224121ec6d8f35/tensorflow/python/ops/random_ops.py#L72-L81
+            noise = eps * stdev
+            random_noise = tf.constant(noise, dtype=tf.float32, name='pred_pnoise_generator')
+        else:
+            raise NameError('{} is not an implemented distribution'.format(params['noise_cov']))
+
         noise_dataset = tf.data.Dataset.from_tensors(
-            {'random_noise': tf.constant(
-                np.random.randn(batch_size, noise_dim), dtype=tf.float32)
-            })
+            {'random_noise': random_noise})
+
         noise = noise_dataset.make_one_shot_iterator().get_next()
         tf.logging.debug('Noise input %s', noise)
         return noise_dataset
@@ -135,5 +160,3 @@ if __name__ == '__main__':
     features, labels = input_fn(params)
     print(features)
     print(labels)
-
-

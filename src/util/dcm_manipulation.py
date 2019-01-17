@@ -40,7 +40,7 @@ import numpy as np
 import pydicom
 import matplotlib.pyplot as plt
 import re
-import gdcm
+# import gdcm
 from tqdm import tqdm
 import random
 import plotly
@@ -50,20 +50,54 @@ from plotly.graph_objs import *
 import pickle
 import time
 
+# list_forbidden_folders = ['CT 4cc sec 150cc D3D on',
+#                           'CT 4cc sec 150cc D3D on-2',
+#                           'CT 4cc sec 150cc D3D on-3',
+#                           'CT POST CONTRAST',
+#                           'CT POST CONTRAST-2',
+#                           'CT BONE',
+#                           'CT I To S',
+#                           'CT PRE CONTRAST BONE',
+#                           'CT Thin Bone',
+#                           'CT Thin Stnd',
+#                           'CT 0.625mm',
+#                           'CT 0.625mm-2',
+#                           'CT 5mm POST CONTRAST',
+#                           'CT ORAL IV',
+#                           'CT 55mm Contrast',
+#                           'CT BONE THIN',
+#                           'CT 3.753.75mm Plain',
+#                           'CT Thin Details',
+#                           'CT Thin Stand']
+#
+# re_forbidden_folders = re.compile(r'\b(?:%s)\b' % '|'.join(list_forbidden_folders))
+#
+# def get_dcms(path):
+#     list_of_dcm = []
+#     for dirpath, dirname, filenames in os.walk(path):
+#         for file in filenames:
+#             pattern = re.compile(r'.dcm$')
+#             m = re.search(pattern, file)
+#             if m is not None and re_forbidden_folders.search(dirpath) is None:
+#                 dcm_path = dirpath + '/' + file
+#                 list_of_dcm.append(dcm_path)
+#     return list_of_dcm
 
 
 def generate_image_and_id_arrays(list_of_paths):
     # Loop to create a list with the pixel data per slice
     x = []
     id = []
-    for file in tqdm((list_of_paths)):
+    # for file in tqdm((list_of_paths)):
+    list_of_dcms = list_of_dcms[0:11]
+    for file in tqdm(list_of_dcms):
         pattern = re.compile(r'.dcm$')
         m = re.search(pattern, file)
         if m is not None:
             # print(file)
             dcm = pydicom.dcmread(file)
             identity = dcm.get('PatientID')
-            if dcm.pixel_array.shape == (512, 512) :
+            if dcm.pixel_array.shape == (512, 512):
                 x.append(dcm.pixel_array)
                 id.append(identity)
 
@@ -198,9 +232,13 @@ if __name__ == "__main__":
 
     # YOU HAVE TO BE IN THE DATASET FOLDER TO RUN THIS SCRIPT
 
-    os.chdir('/home/pereira_inez_gmail_com/bucket2/CT_head_trauma_unzipped')
+    # os.chdir('/Users/ines/Dropbox/CT_head_trauma')
+    # list_of_dcms = get_dcms('/Users/ines/Dropbox/CT_head_trauma')
 
-    x_array, id_array = generate_image_and_id_arrays('list_of_dcms.txt')
+    with open('list_of_dcms.txt', 'r') as f:
+        list_of_dcms = f.read().splitlines()
+
+    x_array, id_array = generate_image_and_id_arrays(list_of_dcms)
     print('x_array and id_arrays have been generated!')
     np.save('x_array.npy', x_array)
     print('x_array saved in a npy file.')

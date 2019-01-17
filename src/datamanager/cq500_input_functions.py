@@ -52,7 +52,7 @@ def input_fn(params):
             # The type is now uint8 but we need it to be float.
             image = tf.reshape(image, [HEIGHT, WIDTH, CHANNELS]) * 2 - 1
 
-            if params['noise_cov'].upper() == 'NORMAL':
+            if params['noise_cov'].upper() == 'IDENTITY':
                 random_noise = tf.random_normal([noise_dim])
             elif params['noise_cov'].upper() == 'POWER':
                 x = tf.range(1, noise_dim+1, dtype=tf.float32)

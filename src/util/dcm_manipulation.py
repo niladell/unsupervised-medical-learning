@@ -262,6 +262,8 @@ if __name__ == "__main__":
 
 
     # Performing PCA
+    n_components = 3
+    pca(n_components=n_components)
     pca = PCA(.95) # It means that scikit-learn choose the minimum number of principal components
     print('PCA model created! Starting training...')
     # such that 95% of the variance is retained.

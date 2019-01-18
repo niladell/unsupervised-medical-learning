@@ -1,4 +1,4 @@
-# Unsupervised medical feature learning
+﻿# Unsupervised medical feature learning
 
 [![Github Issues](https://img.shields.io/github/issues/niladell/unsupervised-medical-learning.svg)](https://github.com/niladell/unsupervised-medical-learning/issues) 
 ![Model](https://img.shields.io/badge/Model%20on%20TPU-passing-green.svg)
@@ -17,7 +17,7 @@ The results can be visualized on [Tensorboard](https://www.tensorflow.org/guide/
 
 then Tensorboard can be used normally from the VM, even with a GCP bucket as a target directory.
 
-&nbsp; 
+&nbsp; safasfa
 
 &nbsp;
 

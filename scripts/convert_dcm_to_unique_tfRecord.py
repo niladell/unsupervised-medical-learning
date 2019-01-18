@@ -70,8 +70,10 @@ def convertToTfRecord(list_of_dcm_paths, out_file, scaling_factor, do_plot=False
             img_raw = rescale(img_raw,
                               scale=1 / scaling_factor,
                               anti_aliasing=True,
-                              clip=True)
+                              clip=True) # ?¿¿¿ <- DOES THIS CONVERT TO FLOAT64???¿¿
                               # preserve_range=False)
+            if type(img_raw[0,0]) != np.float32:
+                    img_raw = img_raw.astype(np.float32)
             if img_raw.shape[0] != height / scaling_factor or \
                img_raw.shape[1] != width / scaling_factor:
 

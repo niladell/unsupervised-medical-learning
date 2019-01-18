@@ -21,12 +21,12 @@ class ResModel(CoreModelTPU):
 
             df_dim = 32 # See gf_dim
 
-            if self.dataset.upper() == 'CQ500':
+            if 'CQ500' in self.dataset.upper():
                 # Input: 512 x 512
                 x = d_block(x, filters=df_dim, name='d_block1')
                 tf.logging.debug(x)
                 # 256
-                if self.dataset.upper() != 'CQ500_small':
+                if self.dataset.upper() != 'CQ500_256':
                     x = d_block(x, filters=df_dim * 2, name='d_block2')
                     tf.logging.debug(x)
                 # 128
@@ -93,7 +93,7 @@ class ResModel(CoreModelTPU):
             gf_dim = 32  #   Still not sure of this:
                          # Form carpedm20 "Dimension of gen filters in first conv layer"
 
-            if self.dataset.upper() == 'CQ500':
+            if 'CQ500' in self.dataset.upper():
                 x = tf.layers.Dense(units=gf_dim * 16 * 4 * 4 )(x)
                 tf.logging.debug(x)
                 x = tf.reshape(x, [-1, 4, 4, gf_dim * 16])
@@ -109,7 +109,7 @@ class ResModel(CoreModelTPU):
                 tf.logging.debug(x)
                 x = g_block(x, gf_dim * 2, is_training, 'g_block5')  # 128 * 128
                 tf.logging.debug(x)
-                if self.dataset.upper() != 'CQ500_small':
+                if self.dataset.upper() != 'CQ500_256':
                     x = g_block(x, gf_dim * 2, is_training, 'g_block6')  # 256 * 256
                     tf.logging.debug(x)
                 x = g_block(x, gf_dim * 1, is_training, 'g_block7')  # 512 * 512

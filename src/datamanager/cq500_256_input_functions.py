@@ -11,8 +11,8 @@ except ImportError:
     USE_ALTERNATIVE = True
 
 
-HEIGHT = 512
-WIDTH = 512
+HEIGHT = 256
+WIDTH = 256
 CHANNELS = 1
 
 ALPHA = -1.127
@@ -44,13 +44,20 @@ def input_fn(params):
                 })
 
             # Decode the raw bytes so it becomes a tensor with type.
+            # TODO Remake dataset as float32 (skimage default saved it as 64)
+            # !!! DATASET IS IN float64!!!!
+            # try:
             image = tf.decode_raw(features["image"], tf.float32)
-
+            # except: # tf.python.framework.errors_impl.InvalidArgumentError:
+            #     image = tf.decode_raw(features["image"], tf.float64)
+                # tf.debuf
             # Hard-code the shape
             image.set_shape([CHANNELS * HEIGHT * WIDTH])
 
             # The type is now uint8 but we need it to be float.
-            image = tf.reshape(image, [HEIGHT, WIDTH, CHANNELS]) * 2 - 1
+            image = tf.cast(
+                tf.reshape(image, [HEIGHT, WIDTH, CHANNELS]) * 2 - 1,
+                dtype=tf.float32) # !!! DATASET IS IN 64
 
             if params['noise_cov'].upper() == 'IDENTITY':
                 random_noise = tf.random_normal([noise_dim], name='noise_generator')

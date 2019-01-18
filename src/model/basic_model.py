@@ -168,22 +168,22 @@ class BasicModel(CoreModelTPU):
                 # 64 x 64
 
                 x = _deconv2d(x, 1, 4, 2, name='g_dconv6')
-                x = _leaky_relu(_batch_norm(x, is_training, name='g_bn6')
+                x = _leaky_relu(_batch_norm(x, is_training, name='g_bn6'))
                 tf.logging.debug(x)
                 # 128 x 128
 
                 x = _deconv2d(x, 1, 4, 2, name='g_dconv7')
-                x = _leaky_relu(_batch_norm(x, is_training, name='g_bn7')
+                x = _leaky_relu(_batch_norm(x, is_training, name='g_bn7'))
                 tf.logging.debug(x)
                 # 256 x 256
 
                 x = _deconv2d(x, 1, 4, 2, name='g_dconv8')
-                x = _leaky_relu(_batch_norm(x, is_training, name='g_bn8')
+                x = _leaky_relu(_batch_norm(x, is_training, name='g_bn8'))
                 tf.logging.debug(x)
                 # 512 x 512
             else:
                 x = _deconv2d(x, 3, 4, 2, name='g_dconv6')
-                x = _leaky_relu(_batch_norm(x, is_training, name='g_bn6')
+                x = _leaky_relu(_batch_norm(x, is_training, name='g_bn6'))
                 tf.logging.debug(x)
             x = tf.tanh(x)
             tf.logging.debug(x)

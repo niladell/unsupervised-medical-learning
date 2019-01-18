@@ -223,20 +223,24 @@ if __name__ == "__main__":
     # PCA on healthy subjects
 
     path1 = os.path.join(os.path.dirname(__file__), 'x_healthy_array.npy')
+    path1= 'src/util/x_healthy_array.npy'
     path2 = os.path.join(os.path.dirname(__file__), 'id_healthy_array.npy')
+    path2 = 'src/util/id_healthy_array.npy'
     x_array_healthy = np.load(path1)
     print('Data array loaded.')
     print(x_array_healthy.shape)
     id_array_healthy = np.load(path2)
     print('ID array loaded.')
 
-    main(x_array_healthy, id_array_healthy)
+    # main(x_array_healthy, id_array_healthy)
 
 
     # PCA on healthy and hemorrhages:
 
     path1 = os.path.join(os.path.dirname(__file__), 'x_hemorrhage_array.npy')
+    path1 = 'src/util/x_hemorrhage_array.npy'
     path2 = os.path.join(os.path.dirname(__file__), 'id_hemorrhage_array.npy')
+    path2 = 'src/util/id_hemorrhage_array.npy'
     x_hemorrhage_array = np.load(path1)
     x_hh_array = np.append(x_array_healthy, x_hemorrhage_array, axis=0)
     print('Data array loaded.')
@@ -245,13 +249,15 @@ if __name__ == "__main__":
     id_hh_array = np.append(id_array_healthy, id_hemorrhage_array, axis=0)
     print('ID array loaded.')
 
-    main(x_hh_array, id_hh_array)
+    # main(x_hh_array, id_hh_array)
 
 
     # PCA on healthy and fractures:
 
     path1 = os.path.join(os.path.dirname(__file__), 'x_frac_array.npy')
+    path1 = 'src/util/x_frac_array.npy'
     path2 = os.path.join(os.path.dirname(__file__), 'id_frac_array.npy')
+    path2 = 'src/util/id_frac_array.npy'
     x_frac_array = np.load(path1)
     x_hf_array = np.append(x_array_healthy, x_frac_array, axis=0)
     print('Data array loaded.')
@@ -260,7 +266,7 @@ if __name__ == "__main__":
     id_hf_array = np.append(id_array_healthy, id_frac_array, axis=0)
     print('ID array loaded.')
 
-    main(x_hf_array, id_hf_array)
+    # main(x_hf_array, id_hf_array)
 
 
     # PCA on all of them!
@@ -270,6 +276,9 @@ if __name__ == "__main__":
     print(x_array_healthy_half.shape)
     id_array_healthy_half = id_array_healthy[:2250]
     print(id_array_healthy_half.shape)
+
+    id_healthy = np.full(id_array_healthy_half.shape, 'No lesions')
+
     print("We have " + str(len(set(id_array_healthy_half)))+" subjects with no lesions.")
 
 
@@ -278,53 +287,15 @@ if __name__ == "__main__":
     print(x_hemorrhage_array_half.shape)
     id_hemorrhage_array_half = id_hemorrhage_array[:2500]
     print(id_hemorrhage_array_half.shape)
+
+    id_hemorrhage = np.full(id_hemorrhage_array_half.shape, 'Hemorrhage')
+
     print("We have " + str(len(set(id_hemorrhage_array_half))) + " subjects with hemorrhages or hematomas.")
 
     print("And now the broken.")
     x_frac_array_half = x_frac_array[:2750, :,:]
     print(x_frac_array_half.shape)
     id_frac_array_half = id_frac_array[:2750]
-    print(id_frac_array_half.shape)
-    print("We have " + str(len(set(id_frac_array_half))) + " subjects with a fracture.")
-
-    x_hhf30_array = np.append(x_array_healthy_half, x_frac_array_half, axis=0)
-    x_hhf30_array = np.append(x_hhf30_array, x_hemorrhage_array_half, axis=0)
-
-    id_hhf30_array = np.append(id_array_healthy_half, id_frac_array_half, axis=0)
-    id_hhf30_array = np.append(id_hhf30_array, id_hemorrhage_array_half, axis=0)
-    print("We have, in total, for this PCA, "+ str(len(set(id_hhf30_array))) + " different subjects.")
-
-    main(x_hhf30_array, id_hhf30_array)
-
-
-
-    # Getting the validation datasets:
-    print("Let's reduce the number of data points :)")
-    print('Let us start with healthy!')
-    x_array_healthy_half = x_array_healthy[2250:, :,:]
-    print(x_array_healthy_half.shape)
-    id_array_healthy_half = id_array_healthy[2250:]
-
-    id_healthy = np.full(id_array_healthy_half.shape, 'No lesions')
-
-    print(id_array_healthy_half.shape)
-    print("We have " + str(len(set(id_array_healthy_half)))+" subjects with no lesions.")
-
-
-    print("Now the bleeders")
-    x_hemorrhage_array_half = x_hemorrhage_array[2500:, :,:]
-    print(x_hemorrhage_array_half.shape)
-    id_hemorrhage_array_half = id_hemorrhage_array[2500:]
-
-    id_hemorrhage = np.full(id_hemorrhage_array_half.shape, 'Hemorrhage')
-
-    print(id_hemorrhage_array_half.shape)
-    print("We have " + str(len(set(id_hemorrhage_array_half))) + " subjects with hemorrhages or hematomas.")
-
-    print("And now the broken.")
-    x_frac_array_half = x_frac_array[2750:, :,:]
-    print(x_frac_array_half.shape)
-    id_frac_array_half = id_frac_array[2750:]
 
     id_frac = np.full(id_frac_array_half.shape, 'Fracture')
 
@@ -338,32 +309,61 @@ if __name__ == "__main__":
     id_hhf30_array = np.append(id_hhf30_array, id_hemorrhage_array_half, axis=0)
     print("We have, in total, for this PCA, "+ str(len(set(id_hhf30_array))) + " different subjects.")
 
-    id_labels_hh30 = np.append(id_healthy, id_frac, axis=0)
-    id_labels_hh30 = np.append(id_labels_hh30, id_hemorrhage, axis=0)
+    # main(x_hhf30_array, id_hhf30_array)
 
 
-    #
-    #
-    # x_hhf60_array = np.append(x_array_healthy, x_frac_array, axis=0)
-    # x_hhf60_array = np.append(x_hhf60_array, x_hemorrhage_array, axis=0)
-    #
-    # id_hhf60_array = np.append(id_array_healthy, id_frac_array, axis=0)
-    # id_hhf60_array = np.append(id_hhf60_array, id_hemorrhage_array, axis=0)
-    #
-    # main(x_hhf60_array, id_hhf60_array)
+    #################################################################
+
+    # Getting the validation datasets:
+    print("Let's reduce the number of data points :)")
+    print('Let us start with healthy!')
+    x_array_healthy_half2 = x_array_healthy[2250:, :,:]
+    print(x_array_healthy_half2.shape)
+    id_array_healthy_half2 = id_array_healthy[2250:]
+
+    id_healthy2 = np.full(id_array_healthy_half2.shape, 'No lesions')
+
+    print(id_array_healthy_half.shape)
+    print("We have " + str(len(set(id_array_healthy_half)))+" subjects with no lesions.")
+
+
+    print("Now the bleeders")
+    x_hemorrhage_array_half2 = x_hemorrhage_array[2500:, :,:]
+    print(x_hemorrhage_array_half2.shape)
+    id_hemorrhage_array_half2 = id_hemorrhage_array[2500:]
+
+    id_hemorrhage2 = np.full(id_hemorrhage_array_half2.shape, 'Hemorrhage')
+
+    print(id_hemorrhage_array_half2.shape)
+    print("We have " + str(len(set(id_hemorrhage_array_half2))) + " subjects with hemorrhages or hematomas.")
+
+    print("And now the broken.")
+    x_frac_array_half2 = x_frac_array[2750:, :,:]
+    print(x_frac_array_half2.shape)
+    id_frac_array_half2 = id_frac_array[2750:]
+
+    id_frac2 = np.full(id_frac_array_half2.shape, 'Fracture')
+
+    print(id_frac_array_half2.shape)
+    print("We have " + str(len(set(id_frac_array_half2))) + " subjects with a fracture.")
+
+    x_hhf30_array2 = np.append(x_array_healthy_half2, x_frac_array_half2, axis=0)
+    x_hhf30_array2 = np.append(x_hhf30_array2, x_hemorrhage_array_half2, axis=0)
+
+    id_hhf30_array2 = np.append(id_array_healthy_half2, id_frac_array_half2, axis=0)
+    id_hhf30_array2 = np.append(id_hhf30_array2, id_hemorrhage_array_half2, axis=0)
+    print("We have, in total, for this PCA, "+ str(len(set(id_hhf30_array))) + " different subjects.")
+
+
+    # Creating the labels for the training and validation datasets
+    labels1_hh30 = np.append(id_healthy, id_frac, axis=0)
+    labels1_hh30 = np.append(labels1_hh30, id_hemorrhage, axis=0)
+
+    labels2_hh30 = np.append(id_healthy2, id_frac2, axis=0)
+    labels2_hh30 = np.append(labels2_hh30, id_hemorrhage2, axis=0)
 
 
 
-
-
-    # If available, upload data (issue with gdcm and MacOs).
-    # Otherwise run the generate_image_and_id_arrays(path) function
-
-    # # Trying to reconstruct the image
-    # # Thanks to: https://github.com/mGalarnyk/Python_Tutorials/blob/master/Sklearn/PCA/PCA_Image_Reconstruction_and_such.ipynb
-    # approximation = pca.inverse_transform(x_train)
-    #
-    #
     # #######################################
     # # WORKING ON PCA COMPUTED ON LEONHARD #
     # #######################################
@@ -378,7 +378,7 @@ if __name__ == "__main__":
     print('ID array loaded.')
 
     # Perform PCA transformation on data
-    x_transformed = pca_model.transform(x_hhf30_array.reshape(x_hhf30_array.shape[0], 512*512))
+    x_transformed = pca_model.transform(x_hhf30_array2.reshape(x_hhf30_array2.shape[0], 512*512))
 
     # Create a dataframe for all the data:
     columns = []
@@ -389,8 +389,8 @@ if __name__ == "__main__":
     principalDf = pd.DataFrame(data=x_transformed, columns=columns)
 
     # Plotting the transformed data:
-    static_plotting(principalDf, id_labels_hh30, title='')
-    interactive_plotting(principalDf, id_labels_hh30, 'PCA hhf30 on h, h and f')
+    static_plotting(principalDf, labels2_hh30, title='')
+    interactive_plotting(principalDf, labels2_hh30, 'PCA hhf30 on h, h and f')
 
     for i in range(15):
         greyscale_plot(pca_model.components_[i,:].reshape(512,512))
@@ -402,6 +402,23 @@ if __name__ == "__main__":
     ##########################
     # Training models on top #
     ##########################
+
+    # Training an SVM
+
+    from sklearn.svm import SVC
+    clf = SVC(gamma='auto')
+    clf.fit(x_transformed, labels2_hh30)
+
+    # Let's see how much it scores with the other half of the data set:
+    test_transformed2 = pca_model.transform(x_hhf30_array.reshape(x_hhf30_array.shape[0], 512*512))
+    clf.score(test_transformed, labels1_hh30)
+
+    clf.score(x_transformed, labels2_hh30)
+
+
+
+
+
 
 
 

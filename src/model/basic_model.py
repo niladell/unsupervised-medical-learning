@@ -46,16 +46,17 @@ class BasicModel(CoreModelTPU):
             df_dim = 64  # Still not sure of this:
                          # Form carpedm20 "Dimension of gen filters in first conv layer"
 
-            if self.dataset == 'cq500':
+            if 'CQ500' in self.dataset.upper():
                 x = _conv2d(x, df_dim, 5, 2, name='d_conv0')
                 x = _leaky_relu(x)
                 tf.logging.debug(x)
                 # 256 x 256
 
-                x = _conv2d(x, df_dim, 5, 2, name='d_conv1.1')
-                x = _leaky_relu(_batch_norm(x, is_training, name='d_bn1.1'))
-                tf.logging.debug(x)
-                # 128 x 128
+                if self.dataset.upper() != 'CQ500_256':
+                    x = _conv2d(x, df_dim, 5, 2, name='d_conv1.1')
+                    x = _leaky_relu(_batch_norm(x, is_training, name='d_bn1.1'))
+                    tf.logging.debug(x)
+                    # 128 x 128
 
 
                 x = _conv2d(x, df_dim, 5, 2, name='d_conv1.2')
@@ -127,54 +128,62 @@ class BasicModel(CoreModelTPU):
 
 
             x = tf.layers.Dense(units=gf_dim * 8 * 4 * 4, name='g_fc1')(x)
-            x = tf.nn.relu(_batch_norm(x, is_training, name='g_bn1'))
+            x = _leaky_relu(_batch_norm(x, is_training, name='g_bn1'))
             tf.logging.debug(x)
             x = tf.reshape(x, [-1, 4, 4, gf_dim * 8])
             tf.logging.debug(x)
             # 4 x 4
 
             x = _deconv2d(x, gf_dim * 4, 5, 2, name='g_dconv2')
-            x = tf.nn.relu(_batch_norm(x, is_training, name='g_bn2'))
+            x = _leaky_relu(_batch_norm(x, is_training, name='g_bn2'))
             tf.logging.debug(x)
             # 8 x 8
 
             x = _deconv2d(x, gf_dim * 2, 4, 2, name='g_dconv3')
-            x = tf.nn.relu(_batch_norm(x, is_training, name='g_bn3'))
+            x = _leaky_relu(_batch_norm(x, is_training, name='g_bn3'))
             tf.logging.debug(x)
             # 16 x 16
 
             if self.dataset == 'celebA':
                 x = _deconv2d(x, gf_dim, 4, 2, name='g_dconv4')
-                x = tf.nn.relu(_batch_norm(x, is_training, name='g_bn4'))
+                x = _leaky_relu(_batch_norm(x, is_training, name='g_bn4'))
                 tf.logging.debug(x)
                 # 32 x 32
 
                 x = _deconv2d(x, 3, 4, 2, name='g_dconv5')
+                x = _leaky_relu(_batch_norm(x, is_training, name='g_bn5'))
                 tf.logging.debug(x)
 
-            if self.dataset == 'cq500':
+            if 'CQ500' in self.dataset.upper():
                 x = _deconv2d(x, gf_dim, 4, 2, name='g_dconv4')
-                x = tf.nn.relu(_batch_norm(x, is_training, name='g_bn4'))
+                x = _leaky_relu(_batch_norm(x, is_training, name='g_bn4'))
                 tf.logging.debug(x)
                 # 32 x 32
 
-                x = _deconv2d(x, 1, 4, 2, name='g_dconv5')
-                tf.logging.debug(x)
+                if self.dataset.upper() != 'CQ500_256':
+                    x = _deconv2d(x, 1, 4, 2, name='g_dconv5')
+                    x = _leaky_relu(_batch_norm(x, is_training, name='g_bn5'))
+
+                    tf.logging.debug(x)
                 # 64 x 64
 
                 x = _deconv2d(x, 1, 4, 2, name='g_dconv6')
+                x = _leaky_relu(_batch_norm(x, is_training, name='g_bn6')
                 tf.logging.debug(x)
                 # 128 x 128
 
                 x = _deconv2d(x, 1, 4, 2, name='g_dconv7')
+                x = _leaky_relu(_batch_norm(x, is_training, name='g_bn7')
                 tf.logging.debug(x)
                 # 256 x 256
 
                 x = _deconv2d(x, 1, 4, 2, name='g_dconv8')
+                x = _leaky_relu(_batch_norm(x, is_training, name='g_bn8')
                 tf.logging.debug(x)
                 # 512 x 512
             else:
-                x = _deconv2d(x, 3, 4, 2, name='g_dconv4')
+                x = _deconv2d(x, 3, 4, 2, name='g_dconv6')
+                x = _leaky_relu(_batch_norm(x, is_training, name='g_bn6')
                 tf.logging.debug(x)
             x = tf.tanh(x)
             tf.logging.debug(x)

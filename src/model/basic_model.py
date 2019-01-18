@@ -123,7 +123,7 @@ class BasicModel(CoreModelTPU):
             tf.logging.debug('Generator %s', self.dataset)
             tf.logging.debug('G -- Input %s', x)
 
-            gf_dim = 64  #   Still not sure of this:
+            gf_dim = 128  #   Still not sure of this:
                          # From carpedm20 "Dimension of gen filters in first conv layer"
 
 

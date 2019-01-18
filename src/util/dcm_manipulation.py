@@ -151,9 +151,9 @@ def interactive_plotting(principalDf, id_array, plot_name):
     for iden, color in zip(set_ids, colors):
         idx = id_array == iden
         trace1 = go.Scatter3d(
-            x=principalDf.loc[idx, 'principal component 1'],
-            y=principalDf.loc[idx, 'principal component 2'],
-            z=principalDf.loc[idx, 'principal component 3'],
+            x=principalDf.loc[idx, 'principal component 168'],
+            y=principalDf.loc[idx, 'principal component 68'],
+            z=principalDf.loc[idx, 'principal component 52'],
             name=iden,
             mode='markers',
             marker=dict(
@@ -175,9 +175,9 @@ def interactive_plotting(principalDf, id_array, plot_name):
             b=0,
             t=0),
         scene=Scene(
-            xaxis=XAxis(title='Principal Component 1'),
-            yaxis=YAxis(title='Principal Component 2'),
-            zaxis=ZAxis(title='Principal Component 3')
+            xaxis=XAxis(title='Principal Component 168'),
+            yaxis=YAxis(title='Principal Component 68'),
+            zaxis=ZAxis(title='Principal Component 52')
         )
     )
     fig = go.Figure(data=data, layout=layout)
@@ -390,7 +390,7 @@ if __name__ == "__main__":
 
     # Plotting the transformed data:
     static_plotting(principalDf, labels2_hh30, title='')
-    interactive_plotting(principalDf, labels2_hh30, 'PCA hhf30 on h, h and f')
+    interactive_plotting(principalDf, labels2_hh30, 'PCA hhf30 on h, h and f, PC168, 68, 52')
 
     for i in range(15):
         greyscale_plot(pca_model.components_[i,:].reshape(512,512))
@@ -406,21 +406,87 @@ if __name__ == "__main__":
     # Training an SVM
 
     from sklearn.svm import SVC
-    clf = SVC(gamma='auto')
+    clf = SVC(gamma='auto', kernel = 'linear')
     clf.fit(x_transformed, labels2_hh30)
 
     # Let's see how much it scores with the other half of the data set:
-    test_transformed2 = pca_model.transform(x_hhf30_array.reshape(x_hhf30_array.shape[0], 512*512))
+    test_transformed = pca_model.transform(x_hhf30_array.reshape(x_hhf30_array.shape[0], 512*512))
     clf.score(test_transformed, labels1_hh30)
-
     clf.score(x_transformed, labels2_hh30)
 
+    clf.get_params()
+    a = clf._get_coef()
+
+    plt.figure()
+    plt.plot(clf._get_coef())
+    plt.show()
 
 
+    def interactive_plotting(principalDf, id_array, plot_name):
+        # Interactive plotting with plotly:
+        colors = define_colors(len(set(id_array)))
+        set_ids = set(id_array)
+        data_full = []
+        for iden, color in zip(set_ids, colors):
+            idx = id_array == iden
+            trace1 = go.Bar(
+            x=list(range(346)),
+            y=principalDf.loc[idx, 'principal component 52'],
+            name=iden
+            )
+            data_full.append(trace1)
+
+        data = data_full
+        layout = go.Layout(
+            margin=dict(
+                l=0,
+                r=0,
+                b=0,
+                t=0),
+            scene=Scene(
+                xaxis=XAxis(title='Principal Component 168'),
+                yaxis=YAxis(title='Principal Component 68'),
+                zaxis=ZAxis(title='Principal Component 52')
+            )
+        )
+        fig = go.Figure(data=data)
+        py.iplot(fig, filename='test comp 52')
 
 
+    tr = []
+    for i in range(3):
+        # plt.figure()
+        # plt.bar(range(346),clf.coef_[i,:]**2)
+        # plt.show()
 
+        tr.append(go.Bar(
+            x=list(range(346)),
+            y=clf.coef_[i, :] ** 2,
+            name=i
+        ))
 
+        for iden, color in zip(set_ids, colors):
+            idx = id_array == iden
+            trace1 = go.Scatter3d(
+                x=principalDf.loc[idx, 'principal component 168'],
+                y=principalDf.loc[idx, 'principal component 68'],
+                z=principalDf.loc[idx, 'principal component 52'],
+                name=iden,
+                mode='markers',
+                marker=dict(
+                    size=12,
+                    line=dict(
+                        color=color,
+                        width=0.5
+                    ),
+                    opacity=0.8
+                )
+            )
+            data_full.append(trace1)
+
+    py.iplot(go.Figure(tr), filename='hey there cofficients')
+
+    greyscale_plot(pca_model.components_[52, :].reshape(512, 512))
 
 
     #

@@ -128,14 +128,14 @@ def static_plotting(principalDf, id_array, title = 'PCA of 20 subjects with no l
     ax = fig.add_subplot(111, projection='3d')
     ax.set_xlabel('Principal Component 1', fontsize = 15, labelpad=15)
     ax.set_ylabel('Principal Component 2', fontsize = 15, labelpad=15)
-    ax.set_zlabel('Principal Component 4', fontsize = 15, labelpad=15)
+    ax.set_zlabel('Principal Component 3', fontsize = 15, labelpad=15)
     ax.set_title(title, fontsize = 18)
     set_ids = set(id_array)
     for iden, color in zip(set_ids, colors):
         idx = id_array == iden
         ax.scatter(principalDf.loc[idx, 'principal component 1'],
                    principalDf.loc[idx, 'principal component 2'],
-                   principalDf.loc[idx, 'principal component 4'],
+                   principalDf.loc[idx, 'principal component 3'],
                    cmap=color,
                    )
     ax.legend(set_ids, loc= 'upper left')
@@ -151,9 +151,9 @@ def interactive_plotting(principalDf, id_array, plot_name):
     for iden, color in zip(set_ids, colors):
         idx = id_array == iden
         trace1 = go.Scatter3d(
-            x=principalDf.loc[idx, 'principal component 3'],
+            x=principalDf.loc[idx, 'principal component 1'],
             y=principalDf.loc[idx, 'principal component 2'],
-            z=principalDf.loc[idx, 'principal component 4'],
+            z=principalDf.loc[idx, 'principal component 3'],
             name=iden,
             mode='markers',
             marker=dict(
@@ -175,9 +175,9 @@ def interactive_plotting(principalDf, id_array, plot_name):
             b=0,
             t=0),
         scene=Scene(
-            xaxis=XAxis(title='Principal Component 3'),
+            xaxis=XAxis(title='Principal Component 1'),
             yaxis=YAxis(title='Principal Component 2'),
-            zaxis=ZAxis(title='Principal Component 4')
+            zaxis=ZAxis(title='Principal Component 3')
         )
     )
     fig = go.Figure(data=data, layout=layout)
@@ -297,6 +297,51 @@ if __name__ == "__main__":
     main(x_hhf30_array, id_hhf30_array)
 
 
+
+    # Getting the validation datasets:
+    print("Let's reduce the number of data points :)")
+    print('Let us start with healthy!')
+    x_array_healthy_half = x_array_healthy[2250:, :,:]
+    print(x_array_healthy_half.shape)
+    id_array_healthy_half = id_array_healthy[2250:]
+
+    id_healthy = np.full(id_array_healthy_half.shape, 'No lesions')
+
+    print(id_array_healthy_half.shape)
+    print("We have " + str(len(set(id_array_healthy_half)))+" subjects with no lesions.")
+
+
+    print("Now the bleeders")
+    x_hemorrhage_array_half = x_hemorrhage_array[2500:, :,:]
+    print(x_hemorrhage_array_half.shape)
+    id_hemorrhage_array_half = id_hemorrhage_array[2500:]
+
+    id_hemorrhage = np.full(id_hemorrhage_array_half.shape, 'Hemorrhage')
+
+    print(id_hemorrhage_array_half.shape)
+    print("We have " + str(len(set(id_hemorrhage_array_half))) + " subjects with hemorrhages or hematomas.")
+
+    print("And now the broken.")
+    x_frac_array_half = x_frac_array[2750:, :,:]
+    print(x_frac_array_half.shape)
+    id_frac_array_half = id_frac_array[2750:]
+
+    id_frac = np.full(id_frac_array_half.shape, 'Fracture')
+
+    print(id_frac_array_half.shape)
+    print("We have " + str(len(set(id_frac_array_half))) + " subjects with a fracture.")
+
+    x_hhf30_array = np.append(x_array_healthy_half, x_frac_array_half, axis=0)
+    x_hhf30_array = np.append(x_hhf30_array, x_hemorrhage_array_half, axis=0)
+
+    id_hhf30_array = np.append(id_array_healthy_half, id_frac_array_half, axis=0)
+    id_hhf30_array = np.append(id_hhf30_array, id_hemorrhage_array_half, axis=0)
+    print("We have, in total, for this PCA, "+ str(len(set(id_hhf30_array))) + " different subjects.")
+
+    id_labels_hh30 = np.append(id_healthy, id_frac, axis=0)
+    id_labels_hh30 = np.append(id_labels_hh30, id_hemorrhage, axis=0)
+
+
     #
     #
     # x_hhf60_array = np.append(x_array_healthy, x_frac_array, axis=0)
@@ -322,8 +367,8 @@ if __name__ == "__main__":
     # #######################################
     # # WORKING ON PCA COMPUTED ON LEONHARD #
     # #######################################
-    filename = 'pca_0.95PC_17_01_2019_18:18:00_healty.pickle'
-    pca_model = pickle.load(open('src/util/'+filename, 'rb'))
+    filename = '/Users/ines/Downloads/das_pca.pickle'
+    pca_model = pickle.load(open(filename, 'rb'))
     n_components = pca_model.n_components_
 
     # Load the data
@@ -333,7 +378,7 @@ if __name__ == "__main__":
     print('ID array loaded.')
 
     # Perform PCA transformation on data
-    x_transformed = pca_model.transform(x_array.reshape(x_array.shape[0], 512*512))
+    x_transformed = pca_model.transform(x_hhf30_array.reshape(x_hhf30_array.shape[0], 512*512))
 
     # Create a dataframe for all the data:
     columns = []
@@ -344,8 +389,8 @@ if __name__ == "__main__":
     principalDf = pd.DataFrame(data=x_transformed, columns=columns)
 
     # Plotting the transformed data:
-    static_plotting(principalDf, x_array)
-    interactive_plotting(principalDf, id_array, 'PCA on 20 subjects with no lesions: PC2,3,4 included')
+    static_plotting(principalDf, id_labels_hh30, title='')
+    interactive_plotting(principalDf, id_labels_hh30, 'PCA hhf30 on h, h and f')
 
     for i in range(15):
         greyscale_plot(pca_model.components_[i,:].reshape(512,512))
@@ -353,6 +398,12 @@ if __name__ == "__main__":
     plt.loglog(pca_model.explained_variance_ratio_)
     plt.plot(pca_model.explained_variance_ratio_)
     plt.show()
+
+    ##########################
+    # Training models on top #
+    ##########################
+
+
 
 
     #

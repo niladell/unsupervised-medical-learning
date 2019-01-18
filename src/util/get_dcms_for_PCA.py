@@ -40,9 +40,9 @@ def main(relative_path, number, output_name):
 
 if __name__ == '__main__':
 
-healthy = main('healthy.csv', 20, 'healthy.txt')
-hemorrhage = main('hemorrhages.csv', 20, 'hemorrhage.txt')
-fractures = main('fractures.csv', 20, 'fractures.txt')
+    healthy = main('healthy.csv', 20, 'healthy.txt')
+    hemorrhage = main('hemorrhages.csv', 20, 'hemorrhage.txt')
+    fractures = main('fractures.csv', 20, 'fractures.txt')
 
 
 # ###########

@@ -55,61 +55,61 @@ Below is an overview of the structure of this project:
 ```bash
 project
 │   README.md
-|   requirements.txt
-|   to_run.sh
-|   monitor.sh
+│   requirements.txt
+│   to_run.sh
+│   monitor.sh
 │
 ├───src
 │   │   main.py
-|   |   main_search.py
+│   │   main_search.py
 │   │
 │   ├─── models
 │   │    │   basic_model.py
 │   │    │   resBlocks_model.py
-|   |    |   resBlocks_ops.py
+│   │    │   resBlocks_ops.py
 │   │
 │   │
 │   ├─── datamanager
 │   │    │   celebA_input_functions.py
-|   |    |   CIFAR_input_functions.py
-|   |    |   cq500_input_functions.py
-|   |    |   cq500_256_input_functions.py
+│   │    │   CIFAR_input_functions.py
+│   │    │   cq500_input_functions.py
+│   │    │   cq500_256_input_functions.py
 │   │
 │   │
 │   ├─── core
 │   │    │   core_model_estimator.py
-|   |
-|   | 
-|   |─── util 
-|        |   cq500_folder_structure.py
-|        |   dcm_manipulation.py
-|        |   get_dcms_for_PCA.py
-|        |   image_postprocessing.py
-|        |   image_preprocessing.py
-|        |   pca_mnist.py
-|        |   tensorboard_logging.py
-|        |   tpu_teraflops_measure.py
-|        |   windowing.py
-|
-|
+│   │
+│   │ 
+│   │─── util 
+│        │   cq500_folder_structure.py
+│        │   dcm_manipulation.py
+│        │   get_dcms_for_PCA.py
+│        │   image_postprocessing.py
+│        │   image_preprocessing.py
+│        │   pca_mnist.py
+│        │   tensorboard_logging.py
+│        │   tpu_teraflops_measure.py
+│        │   windowing.py
+│
+│
 │
 └───scripts
-    | compare_z-locs.py
-    | compare_z-locs_updated.py
-    | convert_dcm_to_unique_tfRecord.py
-    | ct_test.dcm
-    | fractures.csv
-    | fractures.txt
-    | generate_cifar10_tfrecords.py
-    | healthy.csv
-    | healthy.txt
-    | hemorrhage.txt
-    | hemorrhages.csv
-    | reads.csv
-    | restart_tpu.sh
-    | retrieve_all_dcms.py
-    | rewrite_normalize_dcm.py
-    | validation_dataset_creation.py
+    │ compare_z-locs.py
+    │ compare_z-locs_updated.py
+    │ convert_dcm_to_unique_tfRecord.py
+    │ ct_test.dcm
+    │ fractures.csv
+    │ fractures.txt
+    │ generate_cifar10_tfrecords.py
+    │ healthy.csv
+    │ healthy.txt
+    │ hemorrhage.txt
+    │ hemorrhages.csv
+    │ reads.csv
+    │ restart_tpu.sh
+    │ retrieve_all_dcms.py
+    │ rewrite_normalize_dcm.py
+    │ validation_dataset_creation.py
     
     
 ```

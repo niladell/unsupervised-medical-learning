@@ -137,8 +137,11 @@ def noise_input_fn(params):
         else:
             raise NameError('{} is not an implemented distribution'.format(params['noise_cov']))
 
+        random_image = np.random.randn(batch_size, HEIGHT, WIDTH, CHANNELS).astype(np.float32)
+
         noise_dataset = tf.data.Dataset.from_tensors(
-            {'random_noise': random_noise})
+            {'random_noise': random_noise,
+             'random_images': random_image })
 
         noise = noise_dataset.make_one_shot_iterator().get_next()
         tf.logging.debug('Noise input %s', noise)

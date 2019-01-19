@@ -487,9 +487,14 @@ class CoreModelTPU(object):
                 ###########
                 # Pass only noise to PREDICT mode
                 random_noise = features['random_noise']
+                noise_dim = self.noise_dim # TODO THIS IS WRONG # params['noise_dim']
+                images = features['random_images']
+                _, g_logits_encoded = self.discriminator(images,
+                                                        noise_dim=noise_dim)
                 predictions = {
                     'generated_images': self.generator(
-                                            random_noise, is_training=False)
+                                            random_noise, is_training=False),
+                    'encoded_images': g_logits_encoded
                 }
 
                 return tf.contrib.tpu.TPUEstimatorSpec(mode=mode, predictions=predictions)
@@ -766,7 +771,7 @@ class CoreModelTPU(object):
                         (train_steps, current_step))
         tf.gfile.MakeDirs(os.path.join(self.model_dir, 'generated_images'))
 
-        # self.generate_images(generate_input_fn, current_step)
+        self.generate_images(generate_input_fn, current_step)
 
         while current_step < train_steps:
             next_checkpoint = int(min(current_step + self.train_steps_per_eval,

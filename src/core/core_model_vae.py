@@ -570,7 +570,7 @@ class CoreModelTPU_VAE(object):
         image_rows = [np.concatenate(images[i:i+10], axis=0)
                     for i in range(0, self.num_viz_images , 10)]
         tiled_image = np.concatenate(image_rows, axis=1)
-        filename = os.path.join(self.model_dir,'generated_images', 'gen_%s_2.png' % (step_string))
+        filename = os.path.join(self.model_dir,'generated_images', 'gen_%s_2.png' % (num_viz_images))
         img = save_array_as_image(tiled_image, filename)
 
         file_obj = tf.gfile.Open(

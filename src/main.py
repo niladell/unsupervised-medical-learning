@@ -47,16 +47,17 @@ flags.DEFINE_integer('noise_dim', 64,
 flags.DEFINE_string('noise_cov', 'IDENTITY',
                     'Covariance type of the random noise to sample. ' +\
                     'Avail: "IDENTITY", "POWER".')
-flags.DEFINE_string('g_optimizer', 'ADAM', 'Optimizer to use for the'
+flags.DEFINE_string('optimizer', 'ADAM', 'Optimizer to use(now supported: ADAM')
+#flags.DEFINE_string('g_optimizer', 'ADAM', 'Optimizer to use for the'
                      'generator (now supported: ADAM')
-flags.DEFINE_string('d_optimizer', 'SGD', 'Optimizer to use for the'
+#flags.DEFINE_string('d_optimizer', 'SGD', 'Optimizer to use for the'
                      'discriminator (now supported: SGD, ADAM')
 
-flags.DEFINE_boolean('use_encoder', False, 'Use an encoder')
-flags.DEFINE_string('encoder', 'ATTACHED', 'Type of encoder to use.'
-                    'Options are "ATTACHED" or "INDEPENDENT"')
-flags.DEFINE_string('e_optimizer', 'ADAM',  'Optimizer to use for the'
-                     'encoder (now supported: SGD, ADAM')
+#flags.DEFINE_boolean('use_encoder', False, 'Use an encoder')
+#flags.DEFINE_string('encoder', 'ATTACHED', 'Type of encoder to use.'
+#                    'Options are "ATTACHED" or "INDEPENDENT"')
+#flags.DEFINE_string('e_optimizer', 'ADAM',  'Optimizer to use for the'
+#                     'encoder (now supported: SGD, ADAM')
 
 flags.DEFINE_integer('batch_size', 1024,
                      'Batch size for both generator and discriminator')
@@ -83,9 +84,9 @@ flags.DEFINE_integer('wgan_n', 5,
                      'In WGAN penalty: Number of times that the Discriminator ' +\
                      ' (critic) is updated per step')
 
-flags.DEFINE_float('e_loss_lambda', 1.0,
-                    'Factor by which the encoder loss is scaled (`Loss = ' +\
-                    'Adv_loss + lambda * Enc_loss`)')
+#flags.DEFINE_float('e_loss_lambda', 1.0,
+#                    'Factor by which the encoder loss is scaled (`Loss = ' +\
+#                    'Adv_loss + lambda * Enc_loss`)')
 
 flags.DEFINE_integer('train_steps', 50000, 'Number of training steps')
 flags.DEFINE_integer('train_steps_per_eval', 1000,
@@ -112,7 +113,7 @@ if __name__ == "__main__":
 
     # Get the model and dataset # TODO there has to be a better way right?
     if FLAGS.model.upper() == 'BASIC':
-        from model import BasicModel as Model
+        from model import BasicModelVae as Model
     elif FLAGS.model.upper() == 'RESNET':
         from model import ResModel as Model
     else:
@@ -139,11 +140,11 @@ if __name__ == "__main__":
                 # WGAN
                 use_wgan_penalty=FLAGS.use_wgan, wgan_lambda=FLAGS.wgan_lambda, wgan_n=FLAGS.wgan_n,
                 # Encoder
-                use_encoder=FLAGS.use_encoder, encoder=FLAGS.encoder, e_loss_lambda=FLAGS.e_loss_lambda,
+                #use_encoder=FLAGS.use_encoder, encoder=FLAGS.encoder, e_loss_lambda=FLAGS.e_loss_lambda,
                 # ¯\_(ツ)_/¯
                 reconstruction_loss=FLAGS.reconstruction_loss,
                 # Optimizers
-                g_optimizer=FLAGS.g_optimizer, d_optimizer=FLAGS.d_optimizer, e_optimizer=FLAGS.e_optimizer,
+                optimizer=FLAGS.optimizer#g_optimizer=FLAGS.g_optimizer, d_optimizer=FLAGS.d_optimizer, e_optimizer=FLAGS.e_optimizer,
                 # Training and prediction settings
                 iterations_per_loop=FLAGS.iterations_per_loop, num_viz_images=FLAGS.num_viz_images,
                 # Evaluation settings

@@ -113,7 +113,7 @@ if __name__ == "__main__":
 
     # Get the model and dataset # TODO there has to be a better way right?
     if FLAGS.model.upper() == 'BASIC':
-        from model import BasicModelVae as Model
+        from model import BasicModelVAE as Model
     elif FLAGS.model.upper() == 'RESNET':
         from model import ResModel as Model
     else:

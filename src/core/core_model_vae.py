@@ -270,7 +270,7 @@ class CoreModelTPU_VAE(object):
             #random_noise = features['random_noise']
 
             is_training = (mode == tf.estimator.ModeKeys.TRAIN)
-            z_mu, z_log_sigma = tf.squeese(self.discriminator(real_images, code_dim=code_dim))
+            z_mu, z_log_sigma = tf.squeeze(self.discriminator(real_images, code_dim=code_dim))
             z = layers.Lambda(sampling)([z_mu, z_log_sigma])
             generated_images = self.generator(z, is_training=is_training)
 

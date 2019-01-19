@@ -49,9 +49,9 @@ flags.DEFINE_string('noise_cov', 'IDENTITY',
                     'Avail: "IDENTITY", "POWER".')
 flags.DEFINE_string('optimizer', 'ADAM', 'Optimizer to use(now supported: ADAM')
 #flags.DEFINE_string('g_optimizer', 'ADAM', 'Optimizer to use for the'
-                     'generator (now supported: ADAM')
+#                     'generator (now supported: ADAM')
 #flags.DEFINE_string('d_optimizer', 'SGD', 'Optimizer to use for the'
-                     'discriminator (now supported: SGD, ADAM')
+#                     'discriminator (now supported: SGD, ADAM')
 
 #flags.DEFINE_boolean('use_encoder', False, 'Use an encoder')
 #flags.DEFINE_string('encoder', 'ATTACHED', 'Type of encoder to use.'

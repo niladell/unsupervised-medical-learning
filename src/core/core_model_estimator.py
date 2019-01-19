@@ -53,6 +53,7 @@ class CoreModelTPU(object):
                  use_window_loss: bool,
                  lambda_window: float,
                  reconstruction_loss: bool,
+                 r_loss_lambda: float,
                  batch_size: int,
                  soft_label_strength: float,
                  iterations_per_loop: int,
@@ -87,6 +88,7 @@ class CoreModelTPU(object):
             window_loss (bool): If to use a second adversarial loss with the window version of the of the data and generated images.
             lambda_window (bool): `Adv. Loss = Regular adv. loss + lambda * Window Adv. loss
             reconstruction_loss (bool): If to compute x->E(x)->z'->G(z')->x' and minimize the loss as if it was a cheap version of a (V)AE
+            r_loss_lambda (float)
             batch_size (int): Defaults to 1024.
             soft_label_strength (float). Value of the perturbation on soft labels (0 is same as hard labels).
             iterations_per_loop (int): Defaults to 500. Iteratios per loop on the estimator.
@@ -106,20 +108,21 @@ class CoreModelTPU(object):
         if model_dir[-1] == '/':
             model_dir = model_dir[:-1]
         self.model_dir =\
-          '{}/{}_{}{}{}{}z{}{}_{}{}{}{}{}_lr{}'.format(
+          '{}/{}/{}{}{}/z{}{}/{}{}{}{}{}{}{}_lr{}'.format(  # TODO Maaan this is a huge mess
                     model_dir,
                     self.__class__.__name__,
-                    'r' if reconstruction_loss else '',
-                    'E' if use_encoder else '',
-                    encoder[0] + '_' if use_encoder and encoder else '', # A bit of a stupid option
-                    'Win%s_' % lambda_window if use_window_loss else '',
+                    'E' if use_encoder else 'ne',
+                    encoder[0].lower() if use_encoder and encoder else '', # A bit of a stupid option
+                    'R' if reconstruction_loss else '',
                     noise_dim,
                     'p' if noise_cov.upper() == 'POWER' else '',
+                    'Win%s_' % lambda_window if use_window_loss else '',
                     d_optimizer[0],
                     g_optimizer[0],
                     e_optimizer[0] if e_optimizer else '', # TODO a bit of a mess with the encoder options
-                    '_ld%s' % e_loss_lambda if use_encoder else '',
-                    '_W%dL%s' % (wgan_n, wgan_lambda) if use_wgan_penalty else '',
+                    '_lE%s' % e_loss_lambda if use_encoder else '',
+                    '_lR%s_' % r_loss_lambda if reconstruction_loss else '',
+                    '_wgan%d_LW%s' % (wgan_n, wgan_lambda) if use_wgan_penalty else '',
                     learning_rate)
 
         self.use_tpu = use_tpu
@@ -139,6 +142,7 @@ class CoreModelTPU(object):
         self.lambda_window = lambda_window
 
         self.reconstruction_loss = reconstruction_loss
+        self.r_loss_lambda = r_loss_lambda
 
         self.wgan_penalty = use_wgan_penalty
         self.wgan_lambda = wgan_lambda
@@ -413,7 +417,7 @@ class CoreModelTPU(object):
 
             return d_loss, g_loss, e_loss
 
-    def combine_losses(self, d_loss, g_loss, e_loss):
+    def combine_losses(self, d_loss, g_loss, e_loss, r_loss):
         """ Combine the losses and return the final loss that is gonna be used on training
         Args:
             d_loss: Discriminator (or critic) loss
@@ -424,12 +428,12 @@ class CoreModelTPU(object):
             The losses for the Discriminator, Generator, Encoder
         """
         if e_loss is not None:
-            with tf.variable_scope('loss_commbine'):
+            with tf.variable_scope('e_loss_commbine'):
                 with tf.variable_scope('Discriminator'):
                     #   Discriminator:
                     if self.use_encoder and self.encoder == 'ATTACHED':
                         d_loss = d_loss + self.e_loss_lambda * e_loss
-                    d_loss = tf.reduce_mean(d_loss)
+
 
                 with tf.variable_scope('Generator'):
                     #   Generator:
@@ -437,7 +441,6 @@ class CoreModelTPU(object):
                     e_loss_on_g = True
                     if self.use_encoder and e_loss_on_g:
                         g_loss = g_loss + self.e_loss_lambda * e_loss
-                    g_loss = tf.reduce_mean(g_loss)
 
                 with tf.variable_scope('Encoder'):
                     #  Encoder:
@@ -448,6 +451,27 @@ class CoreModelTPU(object):
                 tf.logging.debug('training G loss: %s',g_loss)
                 tf.logging.debug('training E loss: %s',e_loss)
 
+        if r_loss is not None:
+            with tf.variable_scope('r_loss_commbine'):
+                with tf.variable_scope('Discriminator'):
+                    #   Discriminator:
+                    if self.use_encoder and self.encoder == 'ATTACHED':
+                        d_loss = d_loss + self.r_loss_lambda * r_loss
+                    d_loss = tf.reduce_mean(d_loss)
+
+                with tf.variable_scope('Generator'):
+                    #   Generator:
+                    # Do we use the encoder loss to train on G or is it independent
+                    r_loss_on_g = True
+                    if self.use_encoder and r_loss_on_g:
+                        g_loss = g_loss + self.r_loss_lambda * r_loss
+                    g_loss = tf.reduce_mean(g_loss)
+
+                tf.logging.debug('training D loss: %s',d_loss)
+                tf.logging.debug('training G loss: %s',g_loss)
+                tf.logging.debug('training E loss: %s',r_loss)
+        g_loss = tf.reduce_mean(g_loss)
+        d_loss = tf.reduce_mean(d_loss)
         return d_loss, g_loss, e_loss
 
     def generate_model_fn(self):
@@ -556,8 +580,10 @@ class CoreModelTPU(object):
                     tf.logging.debug('R Loss %s', r_loss)
                     r_loss_train = tf.reduce_mean(r_loss)
                     tf.logging.debug('R Loss train %s', r_loss_train)
+            else:
+                r_loss = None
             # Combine losses
-            d_loss_train, g_loss_train, e_loss_train = self.combine_losses(d_loss, g_loss, e_loss)
+            d_loss_train, g_loss_train, e_loss_train = self.combine_losses(d_loss, g_loss, e_loss, r_loss)
             # d_loss_train, g_loss_train, e_loss_train = d_loss, g_loss, e_loss
 
 
@@ -607,12 +633,12 @@ class CoreModelTPU(object):
                                                 scope='Encoder'))
                         ops.append(e_step)
 
-                    if self.reconstruction_loss:
-                        r_step = r_optimizer.minimize(
-                            r_loss_train)
-                            # var_list=tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
-                            #                     scope='Encoder')) # FOR ALL?
-                        ops.append(r_step)
+                    # if self.reconstruction_loss:
+                    #     r_step = r_optimizer.minimize(
+                    #         r_loss_train)
+                    #         # var_list=tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
+                    #         #                     scope='Encoder')) # FOR ALL?
+                    #     ops.append(r_step)
 
 
                     increment_step = tf.assign_add(tf.train.get_or_create_global_step(), 1)
@@ -651,7 +677,7 @@ class CoreModelTPU(object):
                         if self.use_encoder:
                             metrics['encoder_loss'] = tf.metrics.mean(e_loss)
                         if self.reconstruction_loss:
-                            metrics['reconstruction_loss']: tf.metrics.mean(r_loss)
+                            metrics['reconstruction_loss'] = tf.metrics.mean(r_loss)
 
                         tf.logging.debug('Metrics %s', metrics)
 

@@ -60,19 +60,20 @@ flags.DEFINE_string('e_optimizer', 'ADAM',  'Optimizer to use for the'
 
 flags.DEFINE_integer('batch_size', 1024,
                      'Batch size for both generator and discriminator')
-flags.DEFINE_float('soft_label', 0.2,
+flags.DEFINE_float('soft_label', 0.1,
                     'Perturb (i.e. soften) labels randomly between -+ this' +\
                     'value. Soft label of 0 is the same as hard labels {0,1}')
 
-flags.DEFINE_boolean('use_window_loss', True,
+flags.DEFINE_boolean('use_window_loss', False,
                     'Use a second adversarial loss with the window version' +\
                     'of the of the data and generated images.')
 flags.DEFINE_float('window_lambda', 1.0,
                     ' `Adv. Loss = Regular adv. loss + lambda * Window Adv. loss')
 
-
 flags.DEFINE_boolean('reconstruction_loss', False,
                     'Compute reconstruction of real images and minimze its loss')
+flags.DEFINE_float('r_loss_lambda', 1.0,
+                    'Lambda reconstruction loss')
 
 flags.DEFINE_boolean('use_wgan', False,
                     'Whether to use WGAN penalty or not')
@@ -87,7 +88,7 @@ flags.DEFINE_float('e_loss_lambda', 1.0,
                     'Factor by which the encoder loss is scaled (`Loss = ' +\
                     'Adv_loss + lambda * Enc_loss`)')
 
-flags.DEFINE_integer('train_steps', 50000, 'Number of training steps')
+flags.DEFINE_integer('train_steps', 100000, 'Number of training steps')
 flags.DEFINE_integer('train_steps_per_eval', 1000,
                      'Steps per eval and image generation')
 flags.DEFINE_integer('num_eval_images', 1024,
@@ -140,8 +141,8 @@ if __name__ == "__main__":
                 use_wgan_penalty=FLAGS.use_wgan, wgan_lambda=FLAGS.wgan_lambda, wgan_n=FLAGS.wgan_n,
                 # Encoder
                 use_encoder=FLAGS.use_encoder, encoder=FLAGS.encoder, e_loss_lambda=FLAGS.e_loss_lambda,
-                # ¯\_(ツ)_/¯
-                reconstruction_loss=FLAGS.reconstruction_loss,
+                # Reconstriction ¯\_(ツ)_/¯
+                reconstruction_loss=FLAGS.reconstruction_loss, r_loss_lambda=FLAGS.r_loss_lambda,
                 # Optimizers
                 g_optimizer=FLAGS.g_optimizer, d_optimizer=FLAGS.d_optimizer, e_optimizer=FLAGS.e_optimizer,
                 # Training and prediction settings

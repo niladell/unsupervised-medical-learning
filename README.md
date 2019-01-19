@@ -26,6 +26,12 @@ extra building block.
 
 Please consult the package requirements under the ```requirements.txt``` file.
 
+The main flags to run our code are contained within the ```main.py``` file.
+An example command to run a model would be:
+```bash
+python src/main.py --model_dir=gs://iowa_bucket/CQ500/bulk_16_02 --data_dir=gs://iowa_bucket/CQ500/data --use_encoder=True --iterations_per_loop=35 --batch_size=32 --tpu=node-1 --dataset=cq500 --model=RESNET --noise_dim=256 --train_steps=500000 --d_optimizer=SGD --learning_rate=0.0002 --e_loss_lambda=1.0 --train_steps_per_eval=500
+```
+
 In order to run the project using TPU, the data needs to be loaded onto a [GCP bucket](https://cloud.google.com/storage/docs/creating-buckets). 
 An example of training a GAN model on CIFAR-10 can be found under `model/` and `datamanager/`. 
 > python src/main.py --model_dir=gs://[BUCKET_NAME]/cifar10/outputs --data_dir=gs://[BUCKET_NAME]/cifar10/data  --tpu=[TPU_NAME]
@@ -112,10 +118,13 @@ project
     
 ```
 
-The ```src``` folder contains the most important scripts to be able to run the models,
+The ```src/``` folder contains the most important scripts to be able to run the models,
 and includes the models themselves, input functions for each dataset and utility functions. 
 CIFAR is included as we ran early tests on this dataset, however, we report our results 
 on the MNIST, celebA and CQ500 datasets.
+
+The ```scripts/``` folder contains a series of scripts which were necessary to analyze and
+manage the data. 
 
 ##Authors
 Nil Adell Mill  

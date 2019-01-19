@@ -29,20 +29,16 @@ Please consult the package requirements under the ```requirements.txt``` file.
 The main flags to run our code are contained within the ```main.py``` file.
 An example command to run a model would be:
 ```bash
-python src/main.py --model_dir=gs://iowa_bucket/CQ500/bulk_16_02 --data_dir=gs://iowa_bucket/CQ500/data --use_encoder=True --iterations_per_loop=35 --batch_size=32 --tpu=node-1 --dataset=cq500 --model=RESNET --noise_dim=256 --train_steps=500000 --d_optimizer=SGD --learning_rate=0.0002 --e_loss_lambda=1.0 --train_steps_per_eval=500
+python src/main.py --model_dir=gs://[BUCKET_NAME]/cifar10/outputs --data_dir=gs://[BUCKET_NAME]/cifar10/data  --tpu=[TPU_NAME] --dataset=[DATASET]
 ```
 
 In order to run the project using TPU, the data needs to be loaded onto a [GCP bucket](https://cloud.google.com/storage/docs/creating-buckets). 
-An example of training a GAN model on CIFAR-10 can be found under `model/` and `datamanager/`. 
-> python src/main.py --model_dir=gs://[BUCKET_NAME]/cifar10/outputs --data_dir=gs://[BUCKET_NAME]/cifar10/data  --tpu=[TPU_NAME]
-
-To download the CIFAR-10 dataseet run [`util/generate_cifar10_tfrecords.py`](https://github.com/niladell/unsupervised-medical-learning/blob/master/src/util/generate_cifar10_tfrecords.py).
 
 The results can be visualized on [Tensorboard](https://www.tensorflow.org/guide/summaries_and_tensorboard). In GCP virtual machines they can be seen in the local machine by forwarding the ssh port, e.g.
 
-> ssh -L 6006:localhost:6006 [HOST]
+```ssh -L 6006:localhost:6006 [HOST]```
 
-then Tensorboard can be used normally from the VM, even with a GCP bucket as a target directory.
+Then, Tensorboard can be used normally from the VM, even with a GCP bucket as a target directory.
 
 ## How to download the datasets
 To run the code, you will have to download the datasets.
@@ -124,11 +120,16 @@ CIFAR is included as we ran early tests on this dataset, however, we report our 
 on the MNIST, celebA and CQ500 datasets.
 
 The ```scripts/``` folder contains a series of scripts which were necessary to analyze and
-manage the data. 
+manage the data. The CQ500 dataset in particular required a lot of data analysis and special
+handling, given that the original data is in a DICOM format.
 
-##Authors
+## Happy model running!
+Spotted an error? Feedback and pull requests are welcome!
+
+
+##The authors
 Nil Adell Mill  
-Ines Borges Pereira  
+Inês Borges Pereira  
 Patrick Haller  
 Lama Saouma  
 

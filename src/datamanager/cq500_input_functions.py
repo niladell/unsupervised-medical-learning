@@ -143,7 +143,7 @@ def generate_input_fn(mode='TRAIN'):
     mode = mode.upper()
     if mode == 'TRAIN' or mode == 'EVAL':
         return input_fn
-    elif mode == 'PREDICT' #or mode == 'NOISE':
+    elif mode == 'PREDICT': #or mode == 'NOISE'
         return noise_input_fn
     else:
         raise ValueError('Incorrect mode provided')

@@ -151,9 +151,9 @@ def interactive_plotting(principalDf, id_array, plot_name):
     for iden, color in zip(set_ids, colors):
         idx = id_array == iden
         trace1 = go.Scatter3d(
-            x=principalDf.loc[idx, 'principal component 168'],
-            y=principalDf.loc[idx, 'principal component 68'],
-            z=principalDf.loc[idx, 'principal component 52'],
+            x=principalDf.loc[idx, 'principal component 1'],
+            y=principalDf.loc[idx, 'principal component 2'],
+            z=principalDf.loc[idx, 'principal component 3'],
             name=iden,
             mode='markers',
             marker=dict(
@@ -175,13 +175,23 @@ def interactive_plotting(principalDf, id_array, plot_name):
             b=0,
             t=0),
         scene=Scene(
-            xaxis=XAxis(title='Principal Component 168'),
-            yaxis=YAxis(title='Principal Component 68'),
-            zaxis=ZAxis(title='Principal Component 52')
+            xaxis=XAxis(title='Principal Component 1'),
+            yaxis=YAxis(title='Principal Component 2'),
+            zaxis=ZAxis(title='Principal Component 3')
         )
     )
     fig = go.Figure(data=data, layout=layout)
     py.iplot(fig, filename= plot_name)
+
+
+def load_data_and_ids(x_array_path, id_array_path):
+    x_array = np.load(x_array_path)
+    print('Data array loaded.')
+    print(x_array.shape)
+    id_array = np.load(id_array_path)
+    print('ID array loaded.')
+    print(id_array.shape)
+    return x_array, id_array
 
 
 def main(x_array, id_array):
@@ -216,61 +226,44 @@ def main(x_array, id_array):
 # Another library for interactive plots: https://bokeh.pydata.org/en/latest/docs/gallery/iris_splom.html
 
 
+
+
 if __name__ == "__main__":
 
     # YOU HAVE TO BE IN THE DATASET FOLDER TO RUN THIS SCRIPT
+    # TO ACTUALLY RUN THE PCA, UNCOMMENT THE LINE(S) WHERE THE MAIN FUNCTION IS BEING CALLED.
 
-    # PCA on healthy subjects
-
-    path1 = os.path.join(os.path.dirname(__file__), 'x_healthy_array.npy')
-    path1= 'src/util/x_healthy_array.npy'
-    path2 = os.path.join(os.path.dirname(__file__), 'id_healthy_array.npy')
-    path2 = 'src/util/id_healthy_array.npy'
-    x_array_healthy = np.load(path1)
-    print('Data array loaded.')
-    print(x_array_healthy.shape)
-    id_array_healthy = np.load(path2)
-    print('ID array loaded.')
-
+    # PCA on subjects with no lesions
+    x_array_healthy, id_array_healthy = load_data_and_ids('src/util/x_healthy_array.npy', 'src/util/id_healthy_array.npy')
     # main(x_array_healthy, id_array_healthy)
 
 
     # PCA on healthy and hemorrhages:
+    x_hemorrhage_array, id_hemorrhage_array = load_data_and_ids('src/util/x_hemorrhage_array.npy', 'src/util/id_hemorrhage_array.npy')
 
-    path1 = os.path.join(os.path.dirname(__file__), 'x_hemorrhage_array.npy')
-    path1 = 'src/util/x_hemorrhage_array.npy'
-    path2 = os.path.join(os.path.dirname(__file__), 'id_hemorrhage_array.npy')
-    path2 = 'src/util/id_hemorrhage_array.npy'
-    x_hemorrhage_array = np.load(path1)
     x_hh_array = np.append(x_array_healthy, x_hemorrhage_array, axis=0)
-    print('Data array loaded.')
+    print('Data arrays of subjects with no lesion and with hematomas/hemorrhage appended.')
     print(x_hh_array.shape)
-    id_hemorrhage_array = np.load(path2)
     id_hh_array = np.append(id_array_healthy, id_hemorrhage_array, axis=0)
-    print('ID array loaded.')
+    print('ID arrays also appended.')
 
     # main(x_hh_array, id_hh_array)
 
 
     # PCA on healthy and fractures:
+    x_frac_array, id_frac_array = load_data_and_ids('src/util/x_frac_array.npy', 'src/util/id_frac_array.npy')
 
-    path1 = os.path.join(os.path.dirname(__file__), 'x_frac_array.npy')
-    path1 = 'src/util/x_frac_array.npy'
-    path2 = os.path.join(os.path.dirname(__file__), 'id_frac_array.npy')
-    path2 = 'src/util/id_frac_array.npy'
-    x_frac_array = np.load(path1)
     x_hf_array = np.append(x_array_healthy, x_frac_array, axis=0)
-    print('Data array loaded.')
+    print('Data arrays of subjects with no lesion and with fractures appended.')
     print(x_hf_array.shape)
-    id_frac_array = np.load(path2)
     id_hf_array = np.append(id_array_healthy, id_frac_array, axis=0)
-    print('ID array loaded.')
+    print('ID arrays also appended.')
 
     # main(x_hf_array, id_hf_array)
 
 
     # PCA on all of them!
-    print("Let's reduce the number of data points :)")
+    print("Let's reduce the number of data points...")
     print('Let us start with healthy!')
     x_array_healthy_half = x_array_healthy[:2250, :,:]
     print(x_array_healthy_half.shape)
@@ -315,7 +308,7 @@ if __name__ == "__main__":
     #################################################################
 
     # Getting the validation datasets:
-    print("Let's reduce the number of data points :)")
+    print("Let's get ourselves some validation datasets")
     print('Let us start with healthy!')
     x_array_healthy_half2 = x_array_healthy[2250:, :,:]
     print(x_array_healthy_half2.shape)
@@ -352,7 +345,7 @@ if __name__ == "__main__":
 
     id_hhf30_array2 = np.append(id_array_healthy_half2, id_frac_array_half2, axis=0)
     id_hhf30_array2 = np.append(id_hhf30_array2, id_hemorrhage_array_half2, axis=0)
-    print("We have, in total, for this PCA, "+ str(len(set(id_hhf30_array2))) + " different subjects.")
+    print("We have, in total, for this valiadtion dataset, "+ str(len(set(id_hhf30_array2))) + " different subjects.")
 
 
     # Creating the labels for the training and validation datasets
@@ -363,26 +356,18 @@ if __name__ == "__main__":
     labels2_hh30 = np.append(labels2_hh30, id_hemorrhage2, axis=0)
 
 
-
     # #######################################
     # # WORKING ON PCA COMPUTED ON LEONHARD #
     # #######################################
     filename = '/Users/ines/Downloads/das_pca.pickle'
     pca_model = pickle.load(open(filename, 'rb'))
-    n_components = pca_model.n_components_
-
-    # Load the data
-    x_array = np.load('src/util/x_healthy_array.npy')
-    print('Data array loaded.')
-    id_array = np.load('src/util/id_healthy_array.npy')
-    print('ID array loaded.')
 
     # Perform PCA transformation on data
     x_transformed = pca_model.transform(x_hhf30_array2.reshape(x_hhf30_array2.shape[0], 512*512))
 
     # Create a dataframe for all the data:
     columns = []
-    for i in range(1, n_components+1):
+    for i in range(1, pca_model.n_components_+1):
         string = 'principal component '+ str(i)
         columns.append(string)
 
@@ -390,7 +375,7 @@ if __name__ == "__main__":
 
     # Plotting the transformed data:
     static_plotting(principalDf, labels2_hh30, title='')
-    interactive_plotting(principalDf, labels2_hh30, 'PCA hhf30 on h, h and f, PC168, 68, 52')
+    interactive_plotting(principalDf, labels2_hh30, 'PCA hhf30 on h, h and f after code cleaning')
 
     for i in range(15):
         greyscale_plot(pca_model.components_[i,:].reshape(512,512))
@@ -406,13 +391,17 @@ if __name__ == "__main__":
     # Training an SVM
 
     from sklearn.svm import SVC
-    clf = SVC(C=10, gamma='auto', kernel = 'linear')
+    clf = SVC(C=1, gamma='auto', kernel = 'rbf')
     clf.fit(x_transformed, labels2_hh30)
+    print("SVM fitted!")
 
     # Let's see how much it scores with the other half of the data set:
     test_transformed = pca_model.transform(x_hhf30_array.reshape(x_hhf30_array.shape[0], 512*512))
-    clf.score(test_transformed, labels1_hh30)
-    clf.score(x_transformed, labels2_hh30)
+    print("Validation set transformed! Now let's compute some score.")
+    print("On the training set, we've reached a classification accuracy of "+ str(clf.score(x_transformed, labels2_hh30)))
+    print("On the test set, we've reached a classification accuracy of "+ str(clf.score(test_transformed, labels1_hh30)))
+
+
 
     clf.get_params()
     a = clf._get_coef()
@@ -420,137 +409,3 @@ if __name__ == "__main__":
     plt.figure()
     plt.plot(clf._get_coef())
     plt.show()
-
-
-    def interactive_plotting(principalDf, id_array, plot_name):
-        # Interactive plotting with plotly:
-        colors = define_colors(len(set(id_array)))
-        set_ids = set(id_array)
-        data_full = []
-        for iden, color in zip(set_ids, colors):
-            idx = id_array == iden
-            trace1 = go.Bar(
-            x=list(range(346)),
-            y=principalDf.loc[idx, 'principal component 52'],
-            name=iden
-            )
-            data_full.append(trace1)
-
-        data = data_full
-        layout = go.Layout(
-            margin=dict(
-                l=0,
-                r=0,
-                b=0,
-                t=0),
-            scene=Scene(
-                xaxis=XAxis(title='Principal Component 168'),
-                yaxis=YAxis(title='Principal Component 68'),
-                zaxis=ZAxis(title='Principal Component 52')
-            )
-        )
-        fig = go.Figure(data=data)
-        py.iplot(fig, filename='test comp 52')
-
-
-    tr = []
-    for i in range(3):
-        # plt.figure()
-        # plt.bar(range(346),clf.coef_[i,:]**2)
-        # plt.show()
-
-        tr.append(go.Bar(
-            x=list(range(346)),
-            y=clf.coef_[i, :] ** 2,
-            name=i
-        ))
-
-        for iden, color in zip(set_ids, colors):
-            idx = id_array == iden
-            trace1 = go.Scatter3d(
-                x=principalDf.loc[idx, 'principal component 168'],
-                y=principalDf.loc[idx, 'principal component 68'],
-                z=principalDf.loc[idx, 'principal component 52'],
-                name=iden,
-                mode='markers',
-                marker=dict(
-                    size=12,
-                    line=dict(
-                        color=color,
-                        width=0.5
-                    ),
-                    opacity=0.8
-                )
-            )
-            data_full.append(trace1)
-
-    py.iplot(go.Figure(tr), filename='hey there cofficients')
-
-    greyscale_plot(pca_model.components_[52, :].reshape(512, 512))
-
-
-    #
-    # # Creating approximations with all components:
-    # approximation = pca_model.inverse_transform(x_transformed)
-    # slice_approx = approximation[1235, :]  # pick a slice to plot
-    # approx_reshaped = slice_approx.reshape(512, 512)  # reshape so you get back your image :)
-    # greyscale_plot(approx_reshaped)
-    #
-    # # Trying to isolate single PC:
-    # # https://stackoverflow.com/questions/32750915/pca-inverse-transform-manually
-    #
-    # # # Isolating PC1:
-    # PC1 = pca_model.components_[0,:]
-    # # U_reduced = np.zeros(pca_model.components_.shape)  # Creating a new U matrix which will have only one PC
-    # # U_reduced[0,:] = PC1  # here we let U_reduced have only PC1
-    # # PC1_approx = np.dot(x_transformed, U_reduced) + pca_model.mean_  # recreating approximation with only PC1
-    # # # Save your arrays and spare your computer :)
-    # # # np.save('src/util/PC1_approximation.npy', PC1_approx)
-    # # greyscale_plot(PC1_approx[20,:].reshape(512, 512))  # resembles an x-ray
-    # #
-    # # # Isolating PC2:
-    # PC2 = pca_model.components_[1,:]
-    # # U_reduced = np.zeros(pca_model.components_.shape)
-    # # U_reduced[1,:]=PC2
-    # # PC2_approx = np.dot(x_transformed, U_reduced) + pca_model.mean_
-    # # # Save your arrays and spare your computer :)
-    # # # np.save('src/util/PC2_approximation.npy', PC2_approx)
-    # # greyscale_plot(PC2_approx[120,:].reshape(512, 512))  # maybe encoding pixel values?
-    # #
-    # # # Isolating PC3:
-    # PC3 = pca_model.components_[2,:]
-    # # U_reduced = np.zeros(pca_model.components_.shape)
-    # # U_reduced[2,:]=PC3
-    # # PC3_approx = np.dot(x_transformed, U_reduced) + pca_model.mean_
-    # # # Save your arrays and spare your computer :)
-    # # # np.save('src/util/PC3_approximation.npy', PC3_approx)
-    # # greyscale_plot(PC3_approx[1209,:].reshape(512, 512))
-    # #
-    # # # Isolating PC4:
-    # PC4 = pca_model.components_[3,:]
-    # # U_reduced = np.zeros(pca_model.components_.shape)
-    # # U_reduced[3,:] = PC4
-    # # PC4_approx = np.dot(x_transformed, U_reduced) + pca_model.mean_
-    # # # Save your arrays and spare your computer :)
-    # # # np.save('src/util/PC3_approximation.npy', PC3_approx)
-    # # greyscale_plot(PC4_approx[1209,:].reshape(512, 512))
-    #
-    # # Now let's combine PC!
-    # U_reduced = np.zeros(pca_model.components_.shape)
-    # U_reduced[0,:] = PC1
-    # U_reduced[1,:] = PC2
-    # PC12_approx = np.dot(x_transformed, U_reduced) + pca_model.mean_
-    # greyscale_plot(PC12_approx[1326,:].reshape(512, 512))
-    #
-    # U_reduced = np.zeros(pca_model.components_.shape)
-    # U_reduced[0,:] = PC1
-    # U_reduced[1,:] = PC2
-    # U_reduced[2,:] = PC3
-    # PC123_approx = np.dot(x_transformed, U_reduced) + pca_model.mean_
-    # greyscale_plot(PC123_approx[1269,:].reshape(512, 512))
-    #
-    # # Removing components:
-    # U_reduced = pca_model.components_
-    # U_reduced[1,:] = 0
-    # PC_less1_approx = np.dot(x_transformed, U_reduced) + pca_model.mean_
-    # greyscale_plot(PC_less1_approx[1235,:].reshape(512, 512))

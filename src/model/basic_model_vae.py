@@ -107,7 +107,7 @@ class BasicModelVAE(CoreModelTPU_VAE):
             x = tf.reshape(x, [-1, 16 * 16 * df_dim * 8])
             tf.logging.debug(x)
 
-            x = layers.Dense(2*code_dim, activation='relu')(x)
+            x = tf.layers.Dense(2*code_dim, activation='relu')(x)
 
             z_mu = tf.layers.Dense(units=code_dim, name='encode')(x)
             z_log_sigma = tf.layers.Dense(units=code_dim, name='encode')(x)

@@ -530,7 +530,7 @@ class CoreModelTPU_VAE(object):
                             for i in range(0, self.num_viz_images , 10)]
             tiled_image = np.concatenate(image_rows, axis=1)
 
-            img = convert_array_to_image(tiled_image)
+            img = save_array_as_image(tiled_image)
 
             step_string = str(current_step).zfill(5)
             file_obj = tf.gfile.Open(
@@ -569,7 +569,7 @@ class CoreModelTPU_VAE(object):
         image_rows = [np.concatenate(images[i:i+10], axis=0)
                     for i in range(0, self.num_viz_images , 10)]
         tiled_image = np.concatenate(image_rows, axis=1)
-        img = convert_array_to_image(tiled_image)
+        img = save_array_as_image(tiled_image)
 
         file_obj = tf.gfile.Open(
             os.path.join(self.model_dir,

@@ -127,7 +127,7 @@ handling, given that the original data is in a DICOM format.
 Spotted an error? Feedback and pull requests are welcome!
 
 
-##The authors
+## The authors
 Nil Adell Mill  
 Inês Borges Pereira  
 Patrick Haller  

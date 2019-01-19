@@ -191,9 +191,9 @@ class CoreModelTPU(object):
                     'The code is gonna run assuming the parameters were the ' +\
                     'same (but using the ones defined on this session).')
 
-        # Save the params (or the updated version with unrelevant changes)
-        with tf.gfile.GFile(self.model_dir + '/params.txt', 'wb') as f:
-            f.write(json.dumps(model_params, indent=4, sort_keys=True))
+            # Save the params (or the updated version with unrelevant changes)
+            with tf.gfile.GFile(self.model_dir + '/params.txt', 'wb') as f:
+                f.write(json.dumps(model_params, indent=4, sort_keys=True))
 
 
     def equal_parms(self, model_params, old_params):

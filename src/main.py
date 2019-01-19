@@ -144,7 +144,7 @@ if __name__ == "__main__":
                 # ¯\_(ツ)_/¯
                 reconstruction_loss=FLAGS.reconstruction_loss,
                 # Optimizers
-                optimizer=FLAGS.optimizer#g_optimizer=FLAGS.g_optimizer, d_optimizer=FLAGS.d_optimizer, e_optimizer=FLAGS.e_optimizer,
+                optimizer=FLAGS.optimizer,#g_optimizer=FLAGS.g_optimizer, d_optimizer=FLAGS.d_optimizer, e_optimizer=FLAGS.e_optimizer,
                 # Training and prediction settings
                 iterations_per_loop=FLAGS.iterations_per_loop, num_viz_images=FLAGS.num_viz_images,
                 # Evaluation settings

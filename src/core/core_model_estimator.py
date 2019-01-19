@@ -798,7 +798,9 @@ class CoreModelTPU(object):
         for i in range(rounds_gen_imgs):
             tf.logging.debug('Predict round %s/%s', i, rounds_gen_imgs)
             generated_iter = self.est.predict(input_fn=generate_input_fn('PREDICT'))
-            images += [p['generated_images'][:, :, :] for p in generated_iter]
+            for p in generated_iter:
+                images.append(p['generated_images'][:, :, :])
+            tf.logging.debug('Encoded stuff %s', p['encoded_images'])
 
         if len(images) != self.num_viz_images :
             tf.logging.warning('Made %s images (when it should have been %s)',
@@ -886,6 +888,67 @@ class CoreModelTPU(object):
             params=params,
             predict_batch_size=batch_size)
 
+    def set_up_generator(self, batch_size):
+        """ Creates the TF Estimator for the generation of images.
+
+        Args:
+            batch_size (int)
+        """
+        def predict_fn(features, labels, mode, params):
+            """Constructs DCGAN from individual generator and discriminator
+            networks.
+            """
+            del labels    # Unconditional GAN does not use labels
+            ###########
+            # PREDICT #
+            ###########
+            # Pass only noise to PREDICT mode
+            random_noise = features
+            predictions = self.generator(
+                                random_noise, is_training=False)
+
+            return tf.contrib.tpu.TPUEstimatorSpec(mode=mode, predictions=predictions)
+
+        config, params = self.make_config()
+
+        # CPU-based estimator used for GENERATOR PREDICT (generating images)
+        self.generate_est = tf.contrib.tpu.TPUEstimator(
+            model_fn=predict_fn,
+            use_tpu=False,
+            config=config,
+            params=params,
+            predict_batch_size=batch_size)
+
+    def generate(self, random_noise, batch_size=1, clean_generator_est=False):
+        """ Encode an image to the Z-space using the model generator
+
+        Args:
+            ranodm_noise (np.array): shape (batch_size, noise_size)
+            batch_size (int, optional): Defaults to 1.
+            clean_generator_est (bool, optional): Defaults to False. Resets the
+                generator Estimator at the begining of this function and deletes
+                it at the end of it.
+
+        Returns:
+            Generated images
+        """
+        if len(random_noise.shape) == 1:
+            random_noise = np.expand_dims(random_noise, axis=0)
+        if not hasattr(self, 'generate_est') or clean_generator_est:
+            self.set_up_generator(batch_size)
+        def input_fn(params):
+            del params
+            dataset = tf.data.Dataset.from_tensor_slices((random_noise,
+                                                          [[]*random_noise.shape[0]]))
+            dataset = dataset.batch(batch_size)
+            features, labels = dataset.make_one_shot_iterator().get_next()
+            return features, labels
+
+        generated_images = [z for z in self.generate_est.predict(input_fn=input_fn)]
+        if clean_generator_est: #? May we need to free up some memory?
+            del self.encode_est
+        return generated_images
+
 
     def encode(self, images, batch_size=1, clean_encoder_est=False):
         """ Encode an image to the Z-space using the model encoder
@@ -917,7 +980,9 @@ class CoreModelTPU(object):
             self.set_up_encoder(batch_size)
         def input_fn(params):
             del params
-            dataset = tf.data.Dataset.from_tensor_slices((images, [[]]))
+            print(images.shape, batch_size)
+            dataset = tf.data.Dataset.from_tensor_slices((images,
+                                                         [[]]*images.shape[0]))
             dataset = dataset.batch(batch_size)
             features, labels = dataset.make_one_shot_iterator().get_next()
             return features, labels

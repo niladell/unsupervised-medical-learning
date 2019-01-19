@@ -18,7 +18,6 @@ import tensorflow as tf
 
 FLAGS = flags.FLAGS
 
-
 # Cloud TPU Cluster Resolvers
 flags.DEFINE_boolean('use_tpu', True, 'Use TPU for training')
 flags.DEFINE_string(
@@ -42,17 +41,16 @@ flags.DEFINE_string('model', 'BASIC',
                     "Which model to use. Avail: 'BASIC' 'RESNET'")
 flags.DEFINE_string('dataset', 'CIFAR10',
                     "Which dataset to use. Avail: 'CIFAR' 'CELEBA'")
-flags.DEFINE_integer('noise_dim', 64,
+flags.DEFINE_integer('code_dim', 64,
                      'Number of dimensions for the noise vector')
-flags.DEFINE_string('noise_cov', 'IDENTITY',
-                    'Covariance type of the random noise to sample. ' +\
-                    'Avail: "IDENTITY", "POWER".')
+#flags.DEFINE_string('noise_cov', 'IDENTITY',
+#                    'Covariance type of the random noise to sample. ' +\
+#                    'Avail: "IDENTITY", "POWER".')
 flags.DEFINE_string('optimizer', 'ADAM', 'Optimizer to use(now supported: ADAM')
 #flags.DEFINE_string('g_optimizer', 'ADAM', 'Optimizer to use for the'
 #                     'generator (now supported: ADAM')
 #flags.DEFINE_string('d_optimizer', 'SGD', 'Optimizer to use for the'
 #                     'discriminator (now supported: SGD, ADAM')
-
 #flags.DEFINE_boolean('use_encoder', False, 'Use an encoder')
 #flags.DEFINE_string('encoder', 'ATTACHED', 'Type of encoder to use.'
 #                    'Options are "ATTACHED" or "INDEPENDENT"')
@@ -64,25 +62,21 @@ flags.DEFINE_integer('batch_size', 1024,
 flags.DEFINE_float('soft_label', 0.2,
                     'Perturb (i.e. soften) labels randomly between -+ this' +\
                     'value. Soft label of 0 is the same as hard labels {0,1}')
-
-flags.DEFINE_boolean('use_window_loss', True,
-                    'Use a second adversarial loss with the window version' +\
-                    'of the of the data and generated images.')
-flags.DEFINE_float('window_lambda', 1.0,
-                    ' `Adv. Loss = Regular adv. loss + lambda * Window Adv. loss')
-
-
-flags.DEFINE_boolean('reconstruction_loss', False,
-                    'Compute reconstruction of real images and minimze its loss')
-
-flags.DEFINE_boolean('use_wgan', False,
-                    'Whether to use WGAN penalty or not')
-flags.DEFINE_float('wgan_lambda', 10.0,
-                    'Lambda value of WGAN penalty. See Improved WGAN ' +\
-                    '(arXiv:1704.00028). Default value 10 (from paper)')
-flags.DEFINE_integer('wgan_n', 5,
-                     'In WGAN penalty: Number of times that the Discriminator ' +\
-                     ' (critic) is updated per step')
+#flags.DEFINE_boolean('use_window_loss', True,
+#                    'Use a second adversarial loss with the window version' +\
+#                    'of the of the data and generated images.')
+#flags.DEFINE_float('window_lambda', 1.0,
+#                    ' `Adv. Loss = Regular adv. loss + lambda * Window Adv. loss')
+#flags.DEFINE_boolean('reconstruction_loss', False,
+#                    'Compute reconstruction of real images and minimze its loss')
+#flags.DEFINE_boolean('use_wgan', False,
+#                    'Whether to use WGAN penalty or not')
+#flags.DEFINE_float('wgan_lambda', 10.0,
+#                    'Lambda value of WGAN penalty. See Improved WGAN ' +\
+#                    '(arXiv:1704.00028). Default value 10 (from paper)')
+#flags.DEFINE_integer('wgan_n', 5,
+#                     'In WGAN penalty: Number of times that the Discriminator ' +\
+#                     ' (critic) is updated per step')
 
 #flags.DEFINE_float('e_loss_lambda', 1.0,
 #                    'Factor by which the encoder loss is scaled (`Loss = ' +\
@@ -134,15 +128,17 @@ if __name__ == "__main__":
     ##### START
     model = Model(model_dir=FLAGS.model_dir, data_dir=FLAGS.data_dir, dataset=FLAGS.dataset,
                 # Model parameters
-                learning_rate=FLAGS.learning_rate, batch_size=FLAGS.batch_size, noise_dim=FLAGS.noise_dim,
-                noise_cov=FLAGS.noise_cov, soft_label_strength=FLAGS.soft_label,
-                use_window_loss=FLAGS.use_window_loss, lambda_window=FLAGS.window_lambda,
+                learning_rate=FLAGS.learning_rate, batch_size=FLAGS.batch_size, code_dim=FLAGS.code_dim,
+                #lambda_window=FLAGS.window_lambda,
+                #use_window_loss=FLAGS.use_window_loss,
                 # WGAN
-                use_wgan_penalty=FLAGS.use_wgan, wgan_lambda=FLAGS.wgan_lambda, wgan_n=FLAGS.wgan_n,
+                #use_wgan_penalty=FLAGS.use_wgan,
+                #wgan_lambda=FLAGS.wgan_lambda,
+                #wgan_n=FLAGS.wgan_n,
                 # Encoder
                 #use_encoder=FLAGS.use_encoder, encoder=FLAGS.encoder, e_loss_lambda=FLAGS.e_loss_lambda,
                 # ¯\_(ツ)_/¯
-                reconstruction_loss=FLAGS.reconstruction_loss,
+                #reconstruction_loss=FLAGS.reconstruction_loss,
                 # Optimizers
                 optimizer=FLAGS.optimizer,#g_optimizer=FLAGS.g_optimizer, d_optimizer=FLAGS.d_optimizer, e_optimizer=FLAGS.e_optimizer,
                 # Training and prediction settings

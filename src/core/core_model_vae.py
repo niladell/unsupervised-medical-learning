@@ -19,7 +19,7 @@ from tensorflow.contrib import tpu
 from tensorflow.contrib.cluster_resolver import TPUClusterResolver #pylint: disable=E0611
 from tensorflow.python.estimator import estimator
 
-from util.image_postprocessing import convert_array_to_image
+from util.image_postprocessing import save_array_as_image
 
 tfgan = tf.contrib.gan
 queues = tf.contrib.slim.queues
@@ -83,16 +83,18 @@ class CoreModelTPU_VAE(object):
         """
         self.dataset = dataset
         self.data_dir = data_dir
+        self.model_dir = model_dir
+        '''
         if model_dir[-1] == '/':
             model_dir = model_dir[:-1]
-        '''
+
         self.model_dir =\
           '{}/{}_{}{}z{}_lr{}'.format(
                     model_dir,
                     self.__class__.__name__,
                     'E' if use_encoder else '',
                     encoder[0] + '_' if use_encoder and encoder else '',
-                    noise_dim,
+                    code_dim,
                     learning_rate)
         '''
         self.use_tpu = use_tpu
@@ -100,30 +102,27 @@ class CoreModelTPU_VAE(object):
         self.tpu_zone = tpu_zone
         self.gcp_project = gcp_project
         self.num_shards = num_shards
-
         self.learning_rate = learning_rate
         self.optimizer = self.get_optimizer(optimizer, learning_rate)
-        #self.g_optimizer = self.get_optimizer(g_optimizer, learning_rate)
-        #self.d_optimizer = self.get_optimizer(d_optimizer, learning_rate)
         self.code_dim = code_dim
-'''
-        self.use_encoder = use_encoder
-        if encoder not in ['ATTACHED', 'INDEPENDENT']:
-            raise NameError('Encoder type not defined.')
-        self.encoder = encoder
-'''        
-        #self.e_optimizer = None
-'''  
-       if use_encoder:
-            self.e_optimizer = self.get_optimizer(e_optimizer, learning_rate)
-'''
         self.batch_size = batch_size
         self.iterations_per_loop = iterations_per_loop
-
         self.num_viz_images = num_viz_images
         self.eval_loss = eval_loss
         self.train_steps_per_eval = train_steps_per_eval
         self.num_eval_images = num_eval_images
+        '''
+        self.g_optimizer = self.get_optimizer(g_optimizer, learning_rate)
+        self.d_optimizer = self.get_optimizer(d_optimizer, learning_rate)
+        self.use_encoder = use_encoder
+        if encoder not in ['ATTACHED', 'INDEPENDENT']:
+            raise NameError('Encoder type not defined.')
+        self.encoder = encoder
+        self.e_optimizer = None
+        if use_encoder:
+            self.e_optimizer = self.get_optimizer(e_optimizer, learning_rate)
+        '''
+
 
         from copy import deepcopy
         model_params = deepcopy(self.__dict__)
@@ -153,8 +152,8 @@ class CoreModelTPU_VAE(object):
                     'same (but using the ones defined on this session).')
 
         # Save the params (or the updated version with unrelevant changes)
-        with tf.gfile.GFile(self.model_dir + '/params.txt', 'wb') as f:
-            f.write(json.dumps(model_params, indent=4, sort_keys=True))
+        #with tf.gfile.GFile(self.model_dir + '/params.txt', 'wb') as f:
+        #    f.write(json.dumps(model_params, indent=4, sort_keys=True))
 
 
     def equal_parms(self, model_params, old_params):
@@ -211,7 +210,7 @@ class CoreModelTPU_VAE(object):
         else:
             raise NameError('Optimizer {} not recognised'.format(name))
 
-    def discriminator(self, x, is_training=True, scope='Discriminator', noise_dim=None): #pylint: disable=E0202
+    def discriminator(self, x, is_training=True, scope='Discriminator', code_dim=None): #pylint: disable=E0202
         """
         Definition of the discriminator to use. Do not modify the function here
         placeholder for the actual definition in model/ (see example)
@@ -220,7 +219,7 @@ class CoreModelTPU_VAE(object):
             x: Input to the discriminator
             is_training:
             scope: Default Discriminator.
-            noise_dims: Output size of the encoder (in case there's one)
+            code_dims: Output size of the encoder (in case there's one)
 
         Raises:
             NotImplementedError: Model has to be implemented yet (in a separate instance in model/)
@@ -260,10 +259,8 @@ class CoreModelTPU_VAE(object):
                 #random_noise = features['random_noise']
                 predictions = {
                     'generated_images': self.generator(
-                                            z, is_training=False)
-                }
-                real_images = features['real_images']  
-                encoded_images=        
+                                            z, is_training=False)}
+
                 return tf.contrib.tpu.TPUEstimatorSpec(mode=mode, predictions=predictions)
 
             # Use params['batch_size'] for the batch size inside model_fn
@@ -273,33 +270,28 @@ class CoreModelTPU_VAE(object):
             #random_noise = features['random_noise']
 
             is_training = (mode == tf.estimator.ModeKeys.TRAIN)
-            
-            
-            ''' # Get logits from discriminator
-            
-            d_on_data_logits = tf.squeeze(self.discriminator(real_images))
-            if self.use_encoder and self.encoder == 'ATTACHED':
-                # If we use and embedded encoder we create it here
-                d_on_g_logits, g_logits_encoded = self.discriminator(generated_images, noise_dim=noise_dim)
-                d_on_g_logits = tf.squeeze(d_on_g_logits)
-            else:
-                # Regular GAN w/o encoder
-                d_on_g_logits = tf.squeeze(self.discriminator(generated_images)) '''
-
-            z_mu, z_log_sigma = tf.squeese(self.discriminator(real_images, noise_dim=noise_dim))
+            z_mu, z_log_sigma = tf.squeese(self.discriminator(real_images, code_dim=code_dim))
             z = layers.Lambda(sampling)([z_mu, z_log_sigma])
-        '''   
-        z_mean = tf.layers.dense(x, units=n_latent)
-        sd= 0.5 * tf.layers.dense(x, units=n_latent)            
-        epsilon = tf.random_normal(tf.stack([tf.shape(x)[0], n_latent])) 
-        z  = mn + tf.multiply(epsilon, tf.exp(sd))
-        '''
             generated_images = self.generator(z, is_training=is_training)
 
 
-
-
             '''
+            # Get logits from discriminator
+
+            d_on_data_logits = tf.squeeze(self.discriminator(real_images))
+            if self.use_encoder and self.encoder == 'ATTACHED':
+                # If we use and embedded encoder we create it here
+                d_on_g_logits, g_logits_encoded = self.discriminator(generated_images, code_dim=code_dim)
+                d_on_g_logits = tf.squeeze(d_on_g_logits)
+            else:
+                # Regular GAN w/o encoder
+                d_on_g_logits = tf.squeeze(self.discriminator(generated_images))
+
+            z_mean = tf.layers.dense(x, units=n_latent)
+            sd= 0.5 * tf.layers.dense(x, units=n_latent)
+            epsilon = tf.random_normal(tf.stack([tf.shape(x)[0], n_latent]))
+            z  = mn + tf.multiply(epsilon, tf.exp(sd))
+
             # Create the labels
             true_label = tf.ones_like(d_on_data_logits)
             fake_label = tf.zeros_like(d_on_g_logits)
@@ -337,10 +329,11 @@ class CoreModelTPU_VAE(object):
                 if self.encoder == 'INDEPENDENT':
                     _, g_logits_encoded = self.discriminator(generated_images,
                                                             scope='Encoder',
-                                                            noise_dim=noise_dim)
+                                                            code_dim=code_dim)
                 e_loss = tf.losses.mean_squared_error(
                     labels=random_noise,
-                    predictions=g_logits_encoded)  '''
+                    predictions=g_logits_encoded)
+            '''
 
 
             if mode == tf.estimator.ModeKeys.TRAIN:
@@ -362,13 +355,15 @@ class CoreModelTPU_VAE(object):
                 # d_optimizer = tf.train.AdamOptimizer(
                 #     learning_rate=self.learning_rate, beta1=0.5)
                             # Reconstruction loss
-                reconstruction_loss = -tf.reduce_sum(real_images * tf.log(1e-10 + generated_images) \
-                                + (1 - real_images) * tf.log(1e-10 + 1 - generated_images)), 1)
+                import keras.backend as K
+                reconstruction_loss=K.sum(K.binary_crossentropy(generated_images,real_images), axis=1)
+                #reconstruction_loss = -tf.reduce_sum(real_images * tf.log(1e-10 + generated_images) \
+                #                + (1 - real_images) * tf.log(1e-10 + 1 - generated_images)), 1)
                 # KL Divergence loss
                 kl_div_loss = -0.5 * tf.reduce_sum(1 + z_std - tf.square(z_mu) - tf.exp(z_log_sigma), 1)
-            
-                loss = tf.reduce_mean(reconstruction_loss + kl_div_loss) 
-                
+
+                loss = tf.reduce_mean(reconstruction_loss + kl_div_loss)
+
                 optimizer = self.optimizer
                 #d_optimizer = self.d_optimizer
                 #g_optimizer = self.g_optimizer
@@ -381,8 +376,8 @@ class CoreModelTPU_VAE(object):
                 with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
                     step = optimizer.minimize(loss,
                         var_list=tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
-                                                    scope='Discriminator')) #????               
-                    
+                                                    scope='Discriminator')) #????
+
                     '''
                     d_step = d_optimizer.minimize(
                         d_loss,
@@ -421,11 +416,11 @@ class CoreModelTPU_VAE(object):
                 # EVAL #
                 ########
                 #def _eval_metric_fn(d_loss, g_loss):    #??????
-                def _eval_metric_fn(loss):   
+                def _eval_metric_fn(loss):
                 # When using TPUs, this function is run on a different machine than the
                 # rest of the model_fn and should not capture any Tensors defined there
                     return {
-                        loss': tf.metrics.mean(loss)
+                        'loss': tf.metrics.mean(loss)
                         #'discriminator_loss': tf.metrics.mean(d_loss),
                         #'generator_loss': tf.metrics.mean(g_loss)     #??????
                         }
@@ -433,7 +428,7 @@ class CoreModelTPU_VAE(object):
                 return tf.contrib.tpu.TPUEstimatorSpec(
                     mode=mode,
                     loss=tf.reduce_mean(g_loss),                          #??????
-                    eval_metrics=(_eval_metric_fn, [loss])) 
+                    eval_metrics=(_eval_metric_fn, [loss]))
                     #eval_metrics=(_eval_metric_fn, [d_loss, g_loss]))    #??????
 
             # Should never reach here
@@ -459,7 +454,7 @@ class CoreModelTPU_VAE(object):
 
         params = {
             'data_dir': self.data_dir,
-            'noise_dim': self.noise_dim
+            'code_dim': self.code_dim
             }
         return config, params
 
@@ -543,8 +538,7 @@ class CoreModelTPU_VAE(object):
                                 'generated_images', 'gen_%s.png' % (step_string)), 'w')
             img.save(file_obj, format='png')
             tf.logging.info('Finished generating images')
-    
-    def (self, imaage )
+
 
 
     def save_samples_from_data(self, generate_input_fn):

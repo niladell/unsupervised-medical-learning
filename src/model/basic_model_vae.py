@@ -6,7 +6,7 @@ Adversarial Networks" by A. Radford et. al.
 """
 
 import tensorflow as tf
-from core import CoreModelTPU
+from core import CoreModelTPU_VAE
 
 def _leaky_relu(x):
   return tf.nn.leaky_relu(x, alpha=0.2)
@@ -38,7 +38,7 @@ class BasicModelVAE(CoreModelTPU_VAE):
     Example definition of a model/network architecture using this template.
     """
 
-    def discriminator(self, x, is_training=True, scope='Discriminator', noise_dim=None, reuse=tf.AUTO_REUSE):
+    def discriminator(self, x, is_training=True, scope='Discriminator', code_dim=None, reuse=tf.AUTO_REUSE):
         with tf.variable_scope(scope, reuse=reuse):
             tf.logging.debug('Discriminator %s', self.dataset)
             tf.logging.debug('D -- Input %s', x)
@@ -107,10 +107,10 @@ class BasicModelVAE(CoreModelTPU_VAE):
             x = tf.reshape(x, [-1, 16 * 16 * df_dim * 8])
             tf.logging.debug(x)
 
-            x = layers.Dense(2*noise_dim, activation='relu')(x)
+            x = layers.Dense(2*code_dim, activation='relu')(x)
 
-            z_mu = tf.layers.Dense(units=noise_dim, name='encode')(x)
-            z_log_sigma = tf.layers.Dense(units=noise_dim, name='encode')(x)
+            z_mu = tf.layers.Dense(units=code_dim, name='encode')(x)
+            z_log_sigma = tf.layers.Dense(units=code_dim, name='encode')(x)
 
             tf.logging.debug(z_mu)
             tf.logging.debug(z_log_sigma)

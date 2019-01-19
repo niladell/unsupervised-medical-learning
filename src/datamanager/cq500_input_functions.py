@@ -52,22 +52,22 @@ def input_fn(params):
             # The type is now uint8 but we need it to be float.
             image = tf.reshape(image, [HEIGHT, WIDTH, CHANNELS]) * 2 - 1
 
-            if params['noise_cov'].upper() == 'IDENTITY':
-                random_noise = tf.random_normal([code_dim], name='noise_generator')
-            elif params['noise_cov'].upper() == 'POWER':
-                x = tf.range(1, code_dim+1, dtype=tf.float32)
-                stdev = 100*tf.pow(x, ALPHA)
-                random_noise = tf.random_normal(
-                                shape=[code_dim],
-                                mean=tf.zeros(code_dim),
-                                stddev=stdev,
-                                name='pnoise_generator')
-            else:
-                raise NameError('{} is not an implemented distribution'.format(params['noise_cov']))
+            #if params['noise_cov'].upper() == 'IDENTITY':
+            #    random_noise = tf.random_normal([code_dim], name='noise_generator')
+            #elif params['noise_cov'].upper() == 'POWER':
+            #    x = tf.range(1, code_dim+1, dtype=tf.float32)
+            #    stdev = 100*tf.pow(x, ALPHA)
+            #    random_noise = tf.random_normal(
+            #                    shape=[code_dim],
+            #                    mean=tf.zeros(code_dim),
+            #                    stddev=stdev,
+            #                    name='pnoise_generator')
+            #else:
+            #    raise NameError('{} is not an implemented distribution'.format(params['noise_cov']))
 
             features = {
-                'real_images': image,
-                'random_noise': random_noise}
+                'real_images': image}
+            #    , 'random_noise': random_noise}
             return features, []
 
         # TODO we should use an eval dataset fINDEBFOor EVAL  # pylint: disable=fixme
@@ -95,7 +95,7 @@ def input_fn(params):
         tf.logging.debug('Input_fn: Features %s, Labels %s', features, labels)
         return features, labels
 
-
+'''
 def noise_input_fn(params):
     """Input function for generating samples for PREDICT mode.
 
@@ -115,28 +115,28 @@ def noise_input_fn(params):
         # Use constant seed to obtain same noise
         np.random.seed(0)
 
-        if params['noise_cov'].upper() == 'IDENTITY':
-            random_noise = tf.constant(
-                              np.random.randn(batch_size, code_dim),
-                            dtype=tf.float32, name='pred_noise_generator')
-        elif params['noise_cov'].upper() == 'POWER':
-            x = np.arange(1, code_dim+1)
-            stdev = 10*x**ALPHA
-            eps = np.random.randn(batch_size, code_dim)
+        #if params['noise_cov'].upper() == 'IDENTITY':
+        #    random_noise = tf.constant(
+        #                      np.random.randn(batch_size, code_dim),
+        #                    dtype=tf.float32, name='pred_noise_generator')
+        #elif params['noise_cov'].upper() == 'POWER':
+        #    x = np.arange(1, code_dim+1)
+        #    stdev = 10*x**ALPHA
+        #    eps = np.random.randn(batch_size, code_dim)
             # This is the equivalent to the tf.random_normal used on top
             # see: https://github.com/tensorflow/tensorflow/blob/a6d8ffae097d0132989ae4688d224121ec6d8f35/tensorflow/python/ops/random_ops.py#L72-L81
-            noise = eps * stdev
-            random_noise = tf.constant(noise, dtype=tf.float32, name='pred_pnoise_generator')
-        else:
-            raise NameError('{} is not an implemented distribution'.format(params['noise_cov']))
+        #    noise = eps * stdev
+        #    random_noise = tf.constant(noise, dtype=tf.float32, name='pred_pnoise_generator')
+        #else:
+        #    raise NameError('{} is not an implemented distribution'.format(params['noise_cov']))
 
-        noise_dataset = tf.data.Dataset.from_tensors(
-            {'random_noise': random_noise})
+        #noise_dataset = tf.data.Dataset.from_tensors(
+        #    {'random_noise': random_noise})
 
         noise = noise_dataset.make_one_shot_iterator().get_next()
         tf.logging.debug('Noise input %s', noise)
         return noise_dataset
-
+'''
 
 def generate_input_fn(mode='TRAIN'):
     """Creates input_fn depending on whether the code is training or not."""

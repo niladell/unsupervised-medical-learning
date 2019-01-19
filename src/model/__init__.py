@@ -1,8 +1,8 @@
 """Precise model definition """
 
-from .basic_model import BasicModel
+from .basic_model_vae import BasicModelVAE
 from .resBlocks_model import ResModel
 __all__ = (
-    'BasicModel',
+    'BasicModelVAE',
     'ResModel'
 )

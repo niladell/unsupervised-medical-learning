@@ -13,7 +13,7 @@ screen -r node-$NODE -p 0 -X stuff 'python src/main.py --model_dir=gs://iowa_buc
 NODE=3
 #screen -r echo "node-${NODE} on!" || screen -dmS node-$NODE
 screen -dmS node-$NODE
-screen -r node-$NODE -p 0 -X stuff 'python src/main.py --model_dir=gs://iowa_bucket/CQ500/bulk_16_02 --data_dir=gs://iowa_bucket/CQ500/data --use_encoder=True --iterations_per_loop=10 --batch_size=16 --tpu=node-3 --dataset=cq500 --model=RESNET --noise_dim=256 --train_steps=500000 --d_optimizer=SGD --learning_rate=0.0002 --e_loss_lambda=1.0 --train_steps_per_eval=500 --use_window_loss=True --reconstruction_loss=True\n'
+screen -r node-$NODE -p 0 -X stuff 'python src/main.py --model_dir=gs://iowa_bucket/CQ500/bulk_16_02 --data_dir=gs://iowa_bucket/CQ500/data --use_encoder=True --iterations_per_loop=1 --batch_size=8 --tpu=node-3 --dataset=cq500 --model=RESNET --noise_dim=256 --train_steps=500000 --d_optimizer=SGD --learning_rate=0.0002 --e_loss_lambda=1.0 --train_steps_per_eval=500 --use_window_loss=True --reconstruction_loss=True\n'
 
 NODE=4
 #screen -r echo "node-${NODE} on!" || screen -dmS node-$NODE
@@ -45,9 +45,35 @@ NODE=9
 screen -dmS node-$NODE
 screen -r node-$NODE -p 0 -X stuff 'python src/main.py --model_dir=gs://iowa_bucket/CQ500/bulk_16_02 --data_dir=gs://iowa_bucket/CQ500/data --use_encoder=True --iterations_per_loop=35 --batch_size=32 --tpu=node-9 --dataset=cq500 --model=BASIC --noise_dim=256 --train_steps=500000 --d_optimizer=SGD --learning_rate=0.0002 --e_loss_lambda=1.0 --train_steps_per_eval=500 --reconstruction_loss=True\n'
 
+NODE=18
+screen -dmS node-$NODE
+screen -r node-$NODE -p 0 -X stuff 'python src/main.py --model_dir=gs://iowa_bucket/CQ500/bulk_16_02 --data_dir=gs://iowa_bucket/CQ500/data --use_encoder=True --iterations_per_loop=35 --batch_size=32 --tpu=node-18 --dataset=cq500 --model=RESNET --noise_dim=8 --train_steps=500000 --d_optimizer=ADAM --learning_rate=0.0001 --e_loss_lambda=0.0 --train_steps_per_eval=500 --use_wgan=False --use_window_loss=False --reconstruction_loss=False --noise_cov=POWER\n'
+
+NODE=19
+screen -dmS node-$NODE
+screen -r node-$NODE -p 0 -X stuff 'python src/main.py --model_dir=gs://iowa_bucket/CQ500/bulk_16_02 --data_dir=gs://iowa_bucket/CQ500/data --use_encoder=True --iterations_per_loop=35 --batch_size=32 --tpu=node-19 --dataset=cq500 --model=RESNET --noise_dim=8 --train_steps=500000 --d_optimizer=ADAM --learning_rate=0.0001 --e_loss_lambda=0.0 --train_steps_per_eval=500 --use_wgan=False --use_window_loss=True --window_lambda=10.0 --reconstruction_loss=False --noise_cov=POWER\n'
+
+NODE=20
+screen -dmS node-$NODE
+screen -r node-$NODE -p 0 -X stuff 'python src/main.py --model_dir=gs://iowa_bucket/CQ500/bulk_16_02 --data_dir=gs://iowa_bucket/CQ500/data --use_encoder=True --iterations_per_loop=35 --batch_size=32 --tpu=node-20 --dataset=cq500 --model=RESNET --noise_dim=8 --train_steps=500000 --d_optimizer=ADAM --learning_rate=0.0001 --e_loss_lambda=0.0 --train_steps_per_eval=500 --use_wgan=False --use_window_loss=True --window_lambda=10.0 --reconstruction_loss=True --noise_cov=POWER\n'
+
+NODE=21
+screen -dmS node-$NODE
+screen -r node-$NODE -p 0 -X stuff 'python src/main.py --model_dir=gs://iowa_bucket/CQ500/bulk_16_02 --data_dir=gs://iowa_bucket/CQ500/data --use_encoder=True --iterations_per_loop=35 --batch_size=32 --tpu=node-21 --dataset=cq500 --model=RESNET --noise_dim=8 --train_steps=500000 --d_optimizer=ADAM --learning_rate=0.0001 --e_loss_lambda=0.0 --train_steps_per_eval=500 --use_wgan=False --use_window_loss=True --window_lambda=10.0 --reconstruction_loss=True\n'
+
+NODE=22
+screen -dmS node-$NODE
+screen -r node-$NODE -p 0 -X stuff 'python src/main.py --model_dir=gs://iowa_bucket/CQ500/bulk_16_02 --data_dir=gs://iowa_bucket/CQ500/data --use_encoder=True --iterations_per_loop=35 --batch_size=32 --tpu=node-22 --dataset=cq500 --model=RESNET --noise_dim=100 --train_steps=500000 --d_optimizer=ADAM --learning_rate=0.0001 --e_loss_lambda=0.0 --train_steps_per_eval=500 --use_wgan=False --use_window_loss=True --window_lambda=10.0 --reconstruction_loss=True\n'
+
+NODE=25
+screen -dmS node-$NODE
+screen -r node-$NODE -p 0 -X stuff 'python src/main.py --model_dir=gs://iowa_bucket/CQ500/bulk_16_02 --data_dir=gs://iowa_bucket/CQ500/data --use_encoder=True --iterations_per_loop=35 --batch_size=32 --tpu=node-25 --dataset=cq500 --model=RESNET --noise_dim=8 --train_steps=500000 --d_optimizer=ADAM --learning_rate=0.0001 --e_loss_lambda=0.0 --train_steps_per_eval=500 --use_wgan=False --use_window_loss=True --window_lambda=2.0 --reconstruction_loss=True\n'
+
+### OHAMA
+
 NODE=10
 screen -dmS node-$NODE
-screen -r node-$NODE -p 0 -X stuff 'python src/main.py --model_dir=gs://iowa_bucket/CQ500/bulk_16_02 --data_dir=gs://iowa_bucket/CQ500/data --use_encoder=True --iterations_per_loop=35 --batch_size=32 --tpu=node-10 --dataset=cq500 --model=RESNET --noise_dim=128 --train_steps=500000 --d_optimizer=ADAM --learning_rate=0.0001 --e_loss_lambda=2.0 --train_steps_per_eval=500 --use_wgan=True --wgan_n=1\n'
+screen -r node-$NODE -p 0 -X stuff 'python src/main.py --model_dir=gs://iowa_bucket/CQ500/bulk_16_02 --data_dir=gs://iowa_bucket/CQ500/data --use_encoder=True --iterations_per_loop=20 --batch_size=16 --tpu=node-10 --dataset=cq500 --model=RESNET --noise_dim=128 --train_steps=500000 --d_optimizer=ADAM --learning_rate=0.0001 --e_loss_lambda=2.0 --train_steps_per_eval=500 --use_wgan=True --wgan_n=1\n'
 
 NODE=11
 screen -dmS node-$NODE
@@ -77,29 +103,7 @@ NODE=17
 screen -dmS node-$NODE
 screen -r node-$NODE -p 0 -X stuff 'python src/main.py --model_dir=gs://iowa_bucket/CQ500/bulk_16_02 --data_dir=gs://iowa_bucket/CQ500/data --use_encoder=True --iterations_per_loop=35 --batch_size=32 --tpu=node-17 --dataset=cq500 --model=RESNET --noise_dim=64 --train_steps=500000 --d_optimizer=ADAM --learning_rate=0.0001 --e_loss_lambda=0.0 --train_steps_per_eval=500 --use_wgan=False --use_window_loss=False --reconstruction_loss=True --noise_cov=POWER\n'
 
-NODE=18
-screen -dmS node-$NODE
-screen -r node-$NODE -p 0 -X stuff 'python src/main.py --model_dir=gs://iowa_bucket/CQ500/bulk_16_02 --data_dir=gs://iowa_bucket/CQ500/data --use_encoder=True --iterations_per_loop=35 --batch_size=32 --tpu=node-18 --dataset=cq500 --model=RESNET --noise_dim=8 --train_steps=500000 --d_optimizer=ADAM --learning_rate=0.0001 --e_loss_lambda=0.0 --train_steps_per_eval=500 --use_wgan=False --use_window_loss=False --reconstruction_loss=False --noise_cov=POWER\n'
 
-NODE=19
-screen -dmS node-$NODE
-screen -r node-$NODE -p 0 -X stuff 'python src/main.py --model_dir=gs://iowa_bucket/CQ500/bulk_16_02 --data_dir=gs://iowa_bucket/CQ500/data --use_encoder=True --iterations_per_loop=35 --batch_size=32 --tpu=node-19 --dataset=cq500 --model=RESNET --noise_dim=8 --train_steps=500000 --d_optimizer=ADAM --learning_rate=0.0001 --e_loss_lambda=0.0 --train_steps_per_eval=500 --use_wgan=False --use_window_loss=True --window_lambda=10.0 --reconstruction_loss=False --noise_cov=POWER\n'
-
-NODE=20
-screen -dmS node-$NODE
-screen -r node-$NODE -p 0 -X stuff 'python src/main.py --model_dir=gs://iowa_bucket/CQ500/bulk_16_02 --data_dir=gs://iowa_bucket/CQ500/data --use_encoder=True --iterations_per_loop=35 --batch_size=32 --tpu=node-20 --dataset=cq500 --model=RESNET --noise_dim=8 --train_steps=500000 --d_optimizer=ADAM --learning_rate=0.0001 --e_loss_lambda=0.0 --train_steps_per_eval=500 --use_wgan=False --use_window_loss=True --window_lambda=10.0 --reconstruction_loss=True --noise_cov=POWER\n'
-
-NODE=21
-screen -dmS node-$NODE
-screen -r node-$NODE -p 0 -X stuff 'python src/main.py --model_dir=gs://iowa_bucket/CQ500/bulk_16_02 --data_dir=gs://iowa_bucket/CQ500/data --use_encoder=True --iterations_per_loop=35 --batch_size=32 --tpu=node-21 --dataset=cq500 --model=RESNET --noise_dim=8 --train_steps=500000 --d_optimizer=ADAM --learning_rate=0.0001 --e_loss_lambda=0.0 --train_steps_per_eval=500 --use_wgan=False --use_window_loss=True --window_lambda=10.0 --reconstruction_loss=True\n'
-
-NODE=22
-screen -dmS node-$NODE
-screen -r node-$NODE -p 0 -X stuff 'python src/main.py --model_dir=gs://iowa_bucket/CQ500/bulk_16_02 --data_dir=gs://iowa_bucket/CQ500/data --use_encoder=True --iterations_per_loop=35 --batch_size=32 --tpu=node-22 --dataset=cq500 --model=RESNET --noise_dim=100 --train_steps=500000 --d_optimizer=ADAM --learning_rate=0.0001 --e_loss_lambda=0.0 --train_steps_per_eval=500 --use_wgan=False --use_window_loss=True --window_lambda=10.0 --reconstruction_loss=True\n'
-
-NODE=25
-screen -dmS node-$NODE
-screen -r node-$NODE -p 0 -X stuff 'python src/main.py --model_dir=gs://iowa_bucket/CQ500/bulk_16_02 --data_dir=gs://iowa_bucket/CQ500/data --use_encoder=True --iterations_per_loop=35 --batch_size=32 --tpu=node-25 --dataset=cq500 --model=RESNET --noise_dim=8 --train_steps=500000 --d_optimizer=ADAM --learning_rate=0.0001 --e_loss_lambda=0.0 --train_steps_per_eval=500 --use_wgan=False --use_window_loss=True --window_lambda=2.0 --reconstruction_loss=True\n'
 ####################3
 #### 256 x 256
 

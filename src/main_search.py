@@ -1,4 +1,4 @@
-"""Does the same as main.py but over a ser of selected hyperparameters.
+"""Does the same as main.py but over a set of selected hyperparameters.
 
 See notes and FLAGS on main.py on how to run.
 """

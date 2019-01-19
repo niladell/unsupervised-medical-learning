@@ -1,28 +1,8 @@
 '''
-Interesting resources:
-- https://towardsdatascience.com/pca-using-python-scikit-learn-e653f8989e60
-- Getting the inverse transform: https://github.com/mGalarnyk/Python_Tutorials/blob/master/Sklearn/PCA/PCA_Image_Reconstruction_and_such.ipynb
--
-
-Thoughts on PCA results:
-- Subjects 8 and 100 are separated from the rest of the lot, along the PC1 axis!
-- So what does PC1 encode??
-    - bear in mind that subjects 0 and 100 don't have the component at all!
-    - Number 8 has a big yaw (the head is quite tilted)
-- We reconstructing the images using individual PC, you only start to see differences between slices after combining at
-least 3 components!
-
-- Variance explained by PC:
-    - PC1: 0.22435345
-    - PC2: 0.12327218
-    - PC3: 0.0656076
-    - PC4: 0.04517845
-
-CONCLUSION ON THIS 14 SUBJECT DATASET: PCA DOES NOT SEEM TO ENCODE HIGH LEVEL CHARACTERISTICS!
-
-    # Todo:
-    # - try out different types of PCA (KernelPCA, SparsePCA, TruncatedSVD, IncrementalPCA)
-    # - run the computationally more expensive things on Euler
+Script to run PCAs on selected subjects of the CQ500 dataset.
+You have to be in the same folder as those subject folders to run this script.
+To actually run this script, you will need to comment in the calls for main function.
+To plot with plotly, you will need to create your own credentials.
 
 '''
 
@@ -56,8 +36,7 @@ def generate_image_and_id_arrays(list_of_paths):
     # Loop to create a list with the pixel data per slice
     x = []
     id = []
-    # for file in tqdm((list_of_paths)):
-    for file in tqdm(list_of_dcms):
+    for file in tqdm((list_of_paths)):
         pattern = re.compile(r'.dcm$')
         m = re.search(pattern, file)
         if m is not None:
@@ -68,7 +47,7 @@ def generate_image_and_id_arrays(list_of_paths):
                 x.append(dcm.pixel_array)
                 id.append(identity)
 
-    x_array = np.asarray(x) # convert to np.array for ease of manipulation
+    x_array = np.asarray(x)  # convert to np.array for ease of manipulation
     id_array = np.asarray(id)
 
     return x_array, id_array
@@ -76,11 +55,9 @@ def generate_image_and_id_arrays(list_of_paths):
 def PCA_function(x_array, pca):
     print('Starting PCA on the given data...')
     # Preprocessing:
-    x_reshaped = x_array.reshape(x_array.shape[0], 512*512) # Reshape so you can run sk-learn pca
-    # This particular reshaping is inspired by:
-    # https://stackoverflow.com/questions/48003185/sklearn-dimensionality-issues-found-array-with-dim-3-estimator-expected-2
+    x_reshaped = x_array.reshape(x_array.shape[0], 512*512)  # Reshape so you can run sk-learn pca
 
-    # Normalization (recommended everywhere)
+    # Normalization (recommended)
     sc = StandardScaler()
     x_reshaped = sc.fit_transform(x_reshaped)
     print('Normalization of the data done!')
@@ -117,13 +94,12 @@ def define_colors(n):
   return ret
 
 
-def static_plotting(principalDf, id_array, title = 'PCA of 20 subjects with no lesions'):
+def static_plotting(principalDf, id_array, title = ''):
     # Defining colors automatically:
     colors = define_colors(len(set(id_array)))
 
     # Plotting
     fig = plt.figure(figsize = (8,8))
-    # ax = fig.add_subplot(1,1,1)
     ax = plt.axes(projection='3d')
     ax = fig.add_subplot(111, projection='3d')
     ax.set_xlabel('Principal Component 1', fontsize = 15, labelpad=15)
@@ -197,15 +173,14 @@ def load_data_and_ids(x_array_path, id_array_path):
 def main(x_array, id_array):
     # Performing PCA
     n_components = 3
-    # pca(n_components=n_components)
-    pca = PCA(.95) # It means that scikit-learn choose the minimum number of principal components
+    pca = PCA(.95)
     print('PCA model created! Starting training...')
     # such that 95% of the variance is retained.
 
     x_train = PCA_function(x_array, pca)
     print('Training complete! Let us now save the model as a pickle file...')
 
-    # These things are computationally expensive, so save your models!
+    # These models can be computationally expensive, so we're saving them:
     filename = 'pca_'+str(pca.n_components)+'PC_'+str(time.strftime("%d_%m_%Y"))+'_'+str(time.strftime("%H:%M:%S"))+'.pickle'
     pickle.dump(pca, open(filename, 'wb'))
     print('Model saved!')
@@ -230,8 +205,6 @@ def main(x_array, id_array):
 
 if __name__ == "__main__":
 
-    # YOU HAVE TO BE IN THE DATASET FOLDER TO RUN THIS SCRIPT
-    # TO ACTUALLY RUN THE PCA, UNCOMMENT THE LINE(S) WHERE THE MAIN FUNCTION IS BEING CALLED.
 
     # PCA on subjects with no lesions
     x_array_healthy, id_array_healthy = load_data_and_ids('src/util/x_healthy_array.npy', 'src/util/id_healthy_array.npy')
@@ -356,10 +329,11 @@ if __name__ == "__main__":
     labels2_hh30 = np.append(labels2_hh30, id_hemorrhage2, axis=0)
 
 
-    # #######################################
-    # # WORKING ON PCA COMPUTED ON LEONHARD #
-    # #######################################
-    filename = '/Users/ines/Downloads/das_pca.pickle'
+    #########################################
+    #    WORKING ON A PRE-COMPUTED PCA      #
+    #########################################
+
+    filename = '/Users/ines/Downloads/das_pca.pickle'  # path where your PCA is stored.
     pca_model = pickle.load(open(filename, 'rb'))
 
     # Perform PCA transformation on data
@@ -375,7 +349,7 @@ if __name__ == "__main__":
 
     # Plotting the transformed data:
     static_plotting(principalDf, labels2_hh30, title='')
-    interactive_plotting(principalDf, labels2_hh30, 'PCA hhf30 on h, h and f after code cleaning')
+    interactive_plotting(principalDf, labels2_hh30, 'PCA hhf30')
 
     for i in range(15):
         greyscale_plot(pca_model.components_[i,:].reshape(512,512))
@@ -384,11 +358,11 @@ if __name__ == "__main__":
     plt.plot(pca_model.explained_variance_ratio_)
     plt.show()
 
-    ##########################
-    # Training models on top #
-    ##########################
+    ############################################
+    # Training models on top of projected data #
+    ############################################
 
-    # Training an SVM
+    # Training an SVM to see if we can extract clinically relevant features.
 
     from sklearn.svm import SVC
     clf = SVC(C=1, gamma='auto', kernel = 'rbf')
@@ -401,11 +375,3 @@ if __name__ == "__main__":
     print("On the training set, we've reached a classification accuracy of "+ str(clf.score(x_transformed, labels2_hh30)))
     print("On the test set, we've reached a classification accuracy of "+ str(clf.score(test_transformed, labels1_hh30)))
 
-
-
-    clf.get_params()
-    a = clf._get_coef()
-
-    plt.figure()
-    plt.plot(clf._get_coef())
-    plt.show()

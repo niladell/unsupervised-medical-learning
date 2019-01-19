@@ -40,7 +40,7 @@ flags.DEFINE_string('data_dir', '', 'Dataset directory')
 flags.DEFINE_string('model', 'BASIC',
                     "Which model to use. Avail: 'BASIC' 'RESNET'")
 flags.DEFINE_string('dataset', 'CIFAR10',
-                    "Which dataset to use. Avail: 'CIFAR' 'CELEBA'")
+                    "Which dataset to use. Avail: 'CIFAR' 'CELEBA' 'CQ500'")
 flags.DEFINE_integer('code_dim', 64,
                      'Number of dimensions for the noise vector')
 #flags.DEFINE_string('noise_cov', 'IDENTITY',
@@ -126,7 +126,7 @@ if __name__ == "__main__":
 
 
     ##### START
-    model = Model(model_dir=FLAGS.model_dir, data_dir=FLAGS.data_dir, dataset=FLAGS.dataset,
+    model = Model(model_dir=FLAGS.model_dir, data_dir=FLAGS.data_dir, dataset='CQ500',
                 # Model parameters
                 learning_rate=FLAGS.learning_rate, batch_size=FLAGS.batch_size, code_dim=FLAGS.code_dim,
                 #lambda_window=FLAGS.window_lambda,

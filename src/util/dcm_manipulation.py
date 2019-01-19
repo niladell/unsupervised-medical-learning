@@ -352,7 +352,7 @@ if __name__ == "__main__":
 
     id_hhf30_array2 = np.append(id_array_healthy_half2, id_frac_array_half2, axis=0)
     id_hhf30_array2 = np.append(id_hhf30_array2, id_hemorrhage_array_half2, axis=0)
-    print("We have, in total, for this PCA, "+ str(len(set(id_hhf30_array))) + " different subjects.")
+    print("We have, in total, for this PCA, "+ str(len(set(id_hhf30_array2))) + " different subjects.")
 
 
     # Creating the labels for the training and validation datasets
@@ -406,7 +406,7 @@ if __name__ == "__main__":
     # Training an SVM
 
     from sklearn.svm import SVC
-    clf = SVC(gamma='auto', kernel = 'linear')
+    clf = SVC(C=10, gamma='auto', kernel = 'linear')
     clf.fit(x_transformed, labels2_hh30)
 
     # Let's see how much it scores with the other half of the data set:

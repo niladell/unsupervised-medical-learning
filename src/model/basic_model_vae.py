@@ -27,7 +27,7 @@ def _conv2d(x, filters, kernel_size, stride, name):
 
 def _deconv2d(x, filters, kernel_size, stride, name):
   return tf.layers.conv2d_transpose(
-      x, filters, [kernel_size, kernel_size], 
+      x, filters, [kernel_size, kernel_size],
       strides=[stride, stride], padding='same',
       kernel_initializer=tf.truncated_normal_initializer(stddev=0.02),
       name=name)
@@ -47,27 +47,27 @@ class BasicModelVAE(CoreModelTPU_VAE):
                          # Form carpedm20 "Dimension of gen filters in first conv layer"
 
             if self.dataset == 'cq500':
-                
+
                 # 512 x 512
                 x = _conv2d(x, df_dim, 5, 2, name='d_conv0')
                 x = _leaky_relu(x)
                 tf.logging.debug(x)
-                
+
                 # 256 x 256
                 x = _conv2d(x, df_dim, 5, 2, name='d_conv1.1')
                 x = _leaky_relu(_batch_norm(x, is_training, name='d_bn1.1'))
                 tf.logging.debug(x)
-               
-                # 128 x 128 
+
+                # 128 x 128
                 x = _conv2d(x, df_dim, 5, 2, name='d_conv1.2')
                 x = _leaky_relu(_batch_norm(x, is_training, name='d_bn1.2'))
                 tf.logging.debug(x)
-                
+
                 # 64 x 64
                 x = _conv2d(x, df_dim * 2, 5, 2, name='d_conv1')
                 x = _leaky_relu(_batch_norm(x, is_training, name='d_bn1'))
                 tf.logging.debug(x)
-                
+
                 # 32 x 32
                 x = _conv2d(x, df_dim * 2, 5, 2, name='d_conv4')
                 x = _leaky_relu(_batch_norm(x, is_training, name='d_bn4'))
@@ -106,12 +106,12 @@ class BasicModelVAE(CoreModelTPU_VAE):
             # Reshaping
             x = tf.reshape(x, [-1, 16 * 16 * df_dim * 8])
             tf.logging.debug(x)
-            
+
             x = layers.Dense(2*noise_dim, activation='relu')(x)
 
             z_mu = tf.layers.Dense(units=noise_dim, name='encode')(x)
             z_log_sigma = tf.layers.Dense(units=noise_dim, name='encode')(x)
-            
+
             tf.logging.debug(z_mu)
             tf.logging.debug(z_log_sigma)
 
@@ -121,10 +121,10 @@ class BasicModelVAE(CoreModelTPU_VAE):
         z_mu, z_log_sigma = args
         epsilon = random_normal(shape=(shape(z_mu)[0], latent_dim),mean=0., stddev=1.)
         return z_mu + exp(z_log_sigma) * epsilon
-'''
-# sample vector from the latent distribution
-z = layers.Lambda(sampling)([z_mu, z_log_sigma])
-'''
+    '''
+    # sample vector from the latent distribution
+    z = layers.Lambda(sampling)([z_mu, z_log_sigma])
+    '''
 
     def generator(self, x, is_training=True, scope='Generator'):
         with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):

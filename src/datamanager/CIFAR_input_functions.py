@@ -63,7 +63,7 @@ def input_fn(params):
 
     return features, labels
 
-
+# TODO Taken from cq500, not tested!
 def noise_input_fn(params):
     """Input function for generating samples for PREDICT mode.
 
@@ -81,10 +81,13 @@ def noise_input_fn(params):
     noise_dim = params['noise_dim']
     # Use constant seed to obtain same noise
     np.random.seed(0)
-    noise_dataset = tf.data.Dataset.from_tensors(tf.constant(
-        np.random.randn(batch_size, noise_dim), dtype=tf.float32))
+    noise_dataset = tf.data.Dataset.from_tensors(
+        {'random_noise': tf.constant(
+            np.random.randn(batch_size, noise_dim), dtype=tf.float32)
+        })
     noise = noise_dataset.make_one_shot_iterator().get_next()
-    return {'random_noise': noise}, None
+    tf.logging.debug('Noise input %s', noise)
+    return noise_dataset
 
 
 def generate_input_fn(mode='TRAIN'):

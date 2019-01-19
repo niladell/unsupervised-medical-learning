@@ -15,6 +15,8 @@ HEIGHT = 64
 WIDTH = 64
 CHANNELS = 3
 
+ALPHA = -1.43 # Reported one eigenfaces dimensionality paper
+
 
 def input_fn(params):
     """Read CIFAR input data from a TFRecord dataset.
@@ -39,7 +41,20 @@ def input_fn(params):
         image = tf.cast(
                     tf.reshape(image, [HEIGHT, WIDTH, CHANNELS]),
                 tf.float32) * (2. / 255) - 1
-        random_noise = tf.random_normal([noise_dim])
+
+        if params['noise_cov'].upper() == 'IDENTITY':
+            random_noise = tf.random_normal([noise_dim], name='noise_generator')
+        elif params['noise_cov'].upper() == 'POWER':
+            x = tf.range(1, noise_dim+1, dtype=tf.float32)
+            stdev = 100*tf.pow(x, ALPHA)
+            random_noise = tf.random_normal(
+                            shape=[noise_dim],
+                            mean=tf.zeros(noise_dim),
+                            stddev=stdev,
+                            name='pnoise_generator')
+        else:
+            raise NameError('{} is not an implemented distribution'.format(params['noise_cov']))
+
         features = {
             'real_images': image,
             'random_noise': random_noise}
@@ -78,15 +93,33 @@ def noise_input_fn(params):
     Returns:
         1-element `dict` containing the randomly generated noise.
     """
-    batch_size = params['batch_size']
-    noise_dim = params['noise_dim']
-    # Use constant seed to obtain same noise
-    np.random.seed(0)
-    noise_dataset = tf.data.Dataset.from_tensors(tf.constant(
-        np.random.randn(batch_size, noise_dim), dtype=tf.float32))
-    noise = noise_dataset.make_one_shot_iterator().get_next()
-    tf.logging.debug('Noise input %s', noise)
-    return {'random_noise': noise}, None
+    with tf.variable_scope('Input/noise_input'):
+        batch_size = params['batch_size']
+        noise_dim = params['noise_dim']
+        # Use constant seed to obtain same noise
+        np.random.seed(0)
+
+        if params['noise_cov'].upper() == 'IDENTITY':
+            random_noise = tf.constant(
+                              np.random.randn(batch_size, noise_dim),
+                            dtype=tf.float32, name='pred_noise_generator')
+        elif params['noise_cov'].upper() == 'POWER':
+            x = np.arange(1, noise_dim+1)
+            stdev = 10*x**ALPHA
+            eps = np.random.randn(batch_size, noise_dim)
+            # This is the equivalent to the tf.random_normal used on top
+            # see: https://github.com/tensorflow/tensorflow/blob/a6d8ffae097d0132989ae4688d224121ec6d8f35/tensorflow/python/ops/random_ops.py#L72-L81
+            noise = eps * stdev
+            random_noise = tf.constant(noise, dtype=tf.float32, name='pred_pnoise_generator')
+        else:
+            raise NameError('{} is not an implemented distribution'.format(params['noise_cov']))
+
+        noise_dataset = tf.data.Dataset.from_tensors(
+            {'random_noise': random_noise})
+
+        noise = noise_dataset.make_one_shot_iterator().get_next()
+        tf.logging.debug('Noise input %s', noise)
+        return noise_dataset
 
 
 def generate_input_fn(mode='TRAIN'):

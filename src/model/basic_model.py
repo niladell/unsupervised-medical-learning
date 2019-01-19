@@ -80,29 +80,30 @@ class BasicModel(CoreModelTPU):
             elif self.dataset == 'celebA':
                 # 64 x 64
                 x = _conv2d(x, df_dim, 5, 2, name='d_conv0')
-                x = _leaky_relu(x)
                 tf.logging.debug(x)
+                x = _leaky_relu(x)
 
                 # 32 x 32
                 x = _conv2d(x, df_dim * 2, 5, 2, name='d_conv1')
-                x = _leaky_relu(_batch_norm(x, is_training, name='d_bn1'))
                 tf.logging.debug(x)
+                x = _leaky_relu(_batch_norm(x, is_training, name='d_bn1'))
 
             elif self.dataset == 'CIFAR10':
                 # 32 x 32
                 x = _conv2d(x, df_dim * 2, 5, 2, name='d_conv1')
-                x = _leaky_relu(x)
                 tf.logging.debug(x)
+                x = _leaky_relu(x)
 
             # 16 x 16
             x = _conv2d(x, df_dim * 4, 5, 2, name='d_conv2')
-            x = _leaky_relu(_batch_norm(x, is_training, name='d_bn2'))
-            tf.logging.debug(x)
-
             # 8 x 8
-            x = _conv2d(x, df_dim * 8, 5, 2, name='d_conv3')
-            x = _leaky_relu(_batch_norm(x, is_training, name='d_bn3'))
             tf.logging.debug(x)
+            x = _leaky_relu(_batch_norm(x, is_training, name='d_bn2'))
+
+            x = _conv2d(x, df_dim * 8, 5, 2, name='d_conv3')
+            # 4 x 4
+            tf.logging.debug(x)
+            x = _leaky_relu(_batch_norm(x, is_training, name='d_bn3'))
 
             # Reshaping
             x = tf.reshape(x, [-1, 4 * 4 * df_dim * 8])
@@ -145,9 +146,9 @@ class BasicModel(CoreModelTPU):
             # 16 x 16
 
             if self.dataset == 'celebA':
-                x = _deconv2d(x, gf_dim, 4, 2, name='g_dconv4')
-                x = _leaky_relu(_batch_norm(x, is_training, name='g_bn4'))
-                tf.logging.debug(x)
+                # x = _deconv2d(x, gf_dim, 4, 2, name='g_dconv4')
+                # x = _leaky_relu(_batch_norm(x, is_training, name='g_bn4'))
+                # tf.logging.debug(x)
                 # 32 x 32
 
                 x = _deconv2d(x, 3, 4, 2, name='g_dconv5')

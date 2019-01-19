@@ -17,6 +17,7 @@ import tensorflow as tf
 # tf.logging.set_verbosity(tf.logging.INFO)
 
 FLAGS = flags.FLAGS
+tf.enable_eager_execution()
 
 # Cloud TPU Cluster Resolvers
 flags.DEFINE_boolean('use_tpu', True, 'Use TPU for training')
@@ -126,7 +127,7 @@ if __name__ == "__main__":
 
 
     ##### START
-    model = Model(model_dir=FLAGS.model_dir, data_dir=FLAGS.data_dir, dataset='CQ500',
+    model = Model(model_dir=FLAGS.model_dir, data_dir=FLAGS.data_dir, dataset=FLAGS.dataset,
                 # Model parameters
                 learning_rate=FLAGS.learning_rate, batch_size=FLAGS.batch_size, code_dim=FLAGS.code_dim,
                 #lambda_window=FLAGS.window_lambda,

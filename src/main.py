@@ -41,7 +41,7 @@ flags.DEFINE_string('data_dir', '', 'Dataset directory')
 flags.DEFINE_string('model', 'BASIC',
                     "Which model to use. Avail: 'BASIC' 'RESNET'")
 flags.DEFINE_string('dataset', 'CIFAR10',
-                    "Which dataset to use. Avail: 'CIFAR' 'CELEBA'")
+                    "Which dataset to use. Avail: 'CIFAR' 'CELEBA', 'CQ500'")
 flags.DEFINE_integer('noise_dim', 64,
                      'Number of dimensions for the noise vector')
 flags.DEFINE_string('noise_cov', 'IDENTITY',
@@ -64,7 +64,7 @@ flags.DEFINE_float('soft_label', 0.2,
                     'Perturb (i.e. soften) labels randomly between -+ this' +\
                     'value. Soft label of 0 is the same as hard labels {0,1}')
 
-flags.DEFINE_boolean('use_window_loss', True,
+flags.DEFINE_boolean('use_window_loss', False,
                     'Use a second adversarial loss with the window version' +\
                     'of the of the data and generated images.')
 flags.DEFINE_float('window_lambda', 1.0,
@@ -115,8 +115,12 @@ if __name__ == "__main__":
         from model import BasicModel as Model
     elif FLAGS.model.upper() == 'RESNET':
         from model import ResModel as Model
+    elif FLAGS.model.upper() == 'TOY':
+        from model import ToyModel as Model
     else:
         raise NameError('{} is not a proper model name.'.format(FLAGS.model))
+
+
     if FLAGS.dataset.upper() == 'CIFAR10':
         from datamanager.CIFAR_input_functions import generate_input_fn
     elif FLAGS.dataset.upper() == 'CELEBA':
@@ -125,7 +129,8 @@ if __name__ == "__main__":
         from datamanager.cq500_input_functions import generate_input_fn
     elif FLAGS.dataset.upper() == 'CQ500_256':
         from datamanager.cq500_256_input_functions import generate_input_fn
-
+    elif FLAGS.dataset.upper() == 'TOY':
+        from datamanager.toydist_input_functions import generate_input_fn
     else:
         raise NameError('{} is not a proper dataset name.'.format(FLAGS.dataset))
 
@@ -154,7 +159,7 @@ if __name__ == "__main__":
                 gcp_project=FLAGS.gcp_project, num_shards=FLAGS.num_shards,
                 ignore_params_check=FLAGS.ignore_params_check)
 
-    model.save_samples_from_data(generate_input_fn)
+    # model.save_samples_from_data(generate_input_fn)
     model.build_model()
     model.train(FLAGS.train_steps, generate_input_fn)
     tf.logging.info('Finished training.')

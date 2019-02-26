@@ -169,6 +169,10 @@ class CoreModelTPU(object):
 
         tf.logging.info('Current parameters: {}'.format(pformat(model_params)))
 
+        if not tf.gfile.Exists(self.model_dir):
+            # Redundant but may we need this to do dry runs?
+            tf.gfile.MakeDirs(self.model_dir)
+
         if ignore_params_check:
             tf.logging.warning('--ignore_params_check is set to True. The model is ' +\
                 'not gonna check for compatibility with the previous parameters and ' +\
@@ -187,9 +191,9 @@ class CoreModelTPU(object):
                     'The code is gonna run assuming the parameters were the ' +\
                     'same (but using the ones defined on this session).')
 
-        # Save the params (or the updated version with unrelevant changes)
-        with tf.gfile.GFile(self.model_dir + '/params.txt', 'wb') as f:
-            f.write(json.dumps(model_params, indent=4, sort_keys=True))
+            # Save the params (or the updated version with unrelevant changes)
+            with tf.gfile.GFile(self.model_dir + '/params.txt', 'wb') as f:
+                f.write(json.dumps(model_params, indent=4, sort_keys=True))
 
 
     def equal_parms(self, model_params, old_params):
@@ -429,7 +433,6 @@ class CoreModelTPU(object):
                     #   Discriminator:
                     if self.use_encoder and self.encoder == 'ATTACHED':
                         d_loss = d_loss + self.e_loss_lambda * e_loss
-                    d_loss = tf.reduce_mean(d_loss)
 
                 with tf.variable_scope('Generator'):
                     #   Generator:
@@ -437,16 +440,18 @@ class CoreModelTPU(object):
                     e_loss_on_g = True
                     if self.use_encoder and e_loss_on_g:
                         g_loss = g_loss + self.e_loss_lambda * e_loss
-                    g_loss = tf.reduce_mean(g_loss)
 
                 with tf.variable_scope('Encoder'):
                     #  Encoder:
                     if self.use_encoder:
                         e_loss = tf.reduce_mean(e_loss)
 
-                tf.logging.debug('training D loss: %s',d_loss)
-                tf.logging.debug('training G loss: %s',g_loss)
-                tf.logging.debug('training E loss: %s',e_loss)
+        d_loss = tf.reduce_mean(d_loss)
+        g_loss = tf.reduce_mean(g_loss)
+
+        tf.logging.debug('training D loss: %s',d_loss)
+        tf.logging.debug('training G loss: %s',g_loss)
+        tf.logging.debug('training E loss: %s',e_loss)
 
         return d_loss, g_loss, e_loss
 
@@ -758,7 +763,7 @@ class CoreModelTPU(object):
                 tf.logging.info('Finished evaluating')
                 tf.logging.info(metrics)
 
-            self.generate_images(generate_input_fn, current_step)
+            # self.generate_images(generate_input_fn, current_step)
             gc.collect()  # I'm experiencing some kind of memory leak (and seems that other people
                           # did too). So, seeing that adding 52GBs of RAM doesn't help I'll just
                           # take the garbage out manually for now.

@@ -60,29 +60,26 @@ slice = dcm_array[0, :, :]
 # mylist2 = list(set(intercepts))  # o valor parece ser sempre -1024
 #
 # #########################################################
-#
-# win_dict = {
-#             'air':
-#                 {'wl':-1000, 'ww':0},
-#             'subdural':
-#                 {'wl': 75, 'ww': 280},
-#             'angio':
-#                 {'wl': 300, 'ww': 600},
-#             'bone':
-#                 {'wl': 600, 'ww': 2800},
-#             'brain':
-#                 {'wl': 40, 'ww': 80},
-#             'stroke':
-#                 {'wl': 40, 'ww': 40},
-#             'soft tissues':
-#                 {'wl': 40, 'ww': 375}}
-#
 
-# ##################################################################
-# # A verdade é que, sem os valores originais, não vais poder recuperar as HU e portanto aplicar as windows
-# # como vês na Radiopaedia não te vai ajudar nada.
-# # A verdade é que seria também muito farfetched esperar que a GAN te desse valores idênticos aos originais!
-# # Pronto, agora que sabes isso, partes para o eye-balling:
+# Not yet used
+
+win_dict = {
+            'air':
+                {'wl':-1000, 'ww':0},
+            'subdural':
+                {'wl': 75, 'ww': 280},
+            'angio':
+                {'wl': 300, 'ww': 600},
+            'bone':
+                {'wl': 600, 'ww': 2800},
+            'brain':
+                {'wl': 40, 'ww': 80},
+            'stroke':
+                {'wl': 40, 'ww': 40},
+            'soft tissues':
+                {'wl': 40, 'ww': 375}}
+
+###########################################################
 
 def pixel_windowing(rescaled_pixel_value, window):
     max_density = window[1]

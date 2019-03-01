@@ -1,24 +1,25 @@
 import tensorflow as tf
 from tensorflow.layers import Conv2D, BatchNormalization, AveragePooling2D
+from src.variables import resBlocks_ops
 
 
-def _leaky_relu(x, alpha=0.2):
+def _leaky_relu(x, alpha=resBlocks_ops["alpha"]):
   return tf.nn.leaky_relu(x, alpha=alpha)
 
 
-def batch_norm(x, is_training, name, momentum=0.9, epsilon=1e-5):
+def batch_norm(x, is_training, name, momentum=resBlocks_ops["momentum"], epsilon=resBlocks_ops["epsilon"]):
   return tf.layers.batch_normalization(
       x, momentum=momentum, epsilon=epsilon, training=is_training, name=name)
 
 
-def _dense(x, channels, name, stddev=0.02):
+def _dense(x, channels, name, stddev=resBlocks_ops["stddev"]):
   return tf.layers.dense(
       x, channels,
       kernel_initializer=tf.truncated_normal_initializer(stddev=stddev),
       name=name)
 
 
-def _conv2d(x, filters, kernel_size, stride, name, stddev=0.02):
+def _conv2d(x, filters, kernel_size, stride, name, stddev=resBlocks_ops["stddev"]):
   return tf.layers.conv2d(
       x, filters, [kernel_size, kernel_size],
       strides=[stride, stride], padding='same',
@@ -26,7 +27,7 @@ def _conv2d(x, filters, kernel_size, stride, name, stddev=0.02):
       name=name)
 
 
-def _deconv2d(x, filters, kernel_size, stride, name, stddev=0.02):
+def _deconv2d(x, filters, kernel_size, stride, name, stddev=resBlocks_ops["stddev"]):
   return tf.layers.conv2d_transpose(
       x, filters, [kernel_size, kernel_size],
       strides=[stride, stride], padding='same',

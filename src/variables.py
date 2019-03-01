@@ -13,5 +13,11 @@ core_model_estimator = {
     "clip_value_max": 1
 }
 
+basic_model = {
+    "alpha": 0.2,
+    "momentum": 0.9,
+    "epsilon": 1e-5,
+    "stddev": 0.02
+}
 
 

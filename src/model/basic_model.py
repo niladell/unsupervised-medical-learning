@@ -7,29 +7,30 @@ Adversarial Networks" by A. Radford et. al.
 
 import tensorflow as tf
 from core import CoreModelTPU
+from src.variables import basic_model
 
-def _leaky_relu(x):
-  return tf.nn.leaky_relu(x, alpha=0.2)
+def _leaky_relu(x, alpha=basic_model["alpha"]):
+  return tf.nn.leaky_relu(x, alpha=alpha)
 
 
-def _batch_norm(x, is_training, name):
+def _batch_norm(x, is_training, name, momentum=basic_model["momentum"], epsilon = basic_model["epsilon"]):
   return tf.layers.batch_normalization(
-      x, momentum=0.9, epsilon=1e-5, training=is_training, name=name)
+      x, momentum=momentum, epsilon=epsilon, training=is_training, name=name)
 
 
-def _conv2d(x, filters, kernel_size, stride, name):
+def _conv2d(x, filters, kernel_size, stride, name, stddev=basic_model["stddev"]):
   return tf.layers.conv2d(
       x, filters, [kernel_size, kernel_size],
       strides=[stride, stride], padding='same',
-      kernel_initializer=tf.truncated_normal_initializer(stddev=0.02),
+      kernel_initializer=tf.truncated_normal_initializer(stddev=stddev),
       name=name)
 
 
-def _deconv2d(x, filters, kernel_size, stride, name):
+def _deconv2d(x, filters, kernel_size, stride, name, stddev=basic_model["stddev"]):
   return tf.layers.conv2d_transpose(
       x, filters, [kernel_size, kernel_size],
       strides=[stride, stride], padding='same',
-      kernel_initializer=tf.truncated_normal_initializer(stddev=0.02),
+      kernel_initializer=tf.truncated_normal_initializer(stddev=stddev),
       name=name)
 
 

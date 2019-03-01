@@ -167,3 +167,7 @@ if __name__ == '__main__':
     features, labels = input_fn(params)
     print(features)
     print(labels)
+
+    from src.variables import x
+
+    print(x)

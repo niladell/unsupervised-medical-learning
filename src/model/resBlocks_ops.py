@@ -1,6 +1,8 @@
 import tensorflow as tf
-from tensorflow.layers import Conv2D, BatchNormalization, AveragePooling2D
 
+Conv2D = tf.layers.Conv2D
+BatchNormalization = tf.layers.BatchNormalization
+AveragePooling2D = tf.layers.AveragePooling2D
 
 def _leaky_relu(x):
   return tf.nn.leaky_relu(x, alpha=0.2)

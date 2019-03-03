@@ -481,6 +481,14 @@ class CoreModelTPU(object):
             real_images = features['real_images']
             random_noise = features['random_noise']
 
+            hook =  \
+                tf.train.LoggingTensorHook( {
+                                              "noise:": random_noise,
+                                              "data"  : real_images
+                                            },
+                                        every_n_iter=1000)
+
+
             is_training = (mode == tf.estimator.ModeKeys.TRAIN)
             generated_images = self.generator(random_noise,
                                               is_training=is_training)
@@ -544,6 +552,8 @@ class CoreModelTPU(object):
                     d_loss = d_loss + self.lambda_window * d_loss_window
                     g_loss = g_loss + self.lambda_window * g_loss_window
 
+            # Combine losses
+            d_loss_train, g_loss_train, e_loss_train = self.combine_losses(d_loss, g_loss, e_loss)
             if self.reconstruction_loss:
                 if not self.use_encoder or self.use_encoder and self.encoder.upper() == 'INDEPENDENT':
                     raise NotImplementedError('Reconstruction loss not implemented for Independent encoder')
@@ -561,8 +571,9 @@ class CoreModelTPU(object):
                     tf.logging.debug('R Loss %s', r_loss)
                     r_loss_train = tf.reduce_mean(r_loss)
                     tf.logging.debug('R Loss train %s', r_loss_train)
-            # Combine losses
-            d_loss_train, g_loss_train, e_loss_train = self.combine_losses(d_loss, g_loss, e_loss)
+                    g_loss_train += r_loss_train
+                    d_loss_train += r_loss_train
+                    e_loss_train += r_loss_train
             # d_loss_train, g_loss_train, e_loss_train = d_loss, g_loss, e_loss
 
 
@@ -612,12 +623,12 @@ class CoreModelTPU(object):
                                                 scope='Encoder'))
                         ops.append(e_step)
 
-                    if self.reconstruction_loss:
-                        r_step = r_optimizer.minimize(
-                            r_loss_train)
-                            # var_list=tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
-                            #                     scope='Encoder')) # FOR ALL?
-                        ops.append(r_step)
+                    # if self.reconstruction_loss:
+                    #     r_step = r_optimizer.minimize(
+                    #         r_loss_train)
+                    #         # var_list=tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
+                    #         #                     scope='Encoder')) # FOR ALL?
+                    #     ops.append(r_step)
 
 
                     increment_step = tf.assign_add(tf.train.get_or_create_global_step(), 1)
@@ -764,9 +775,6 @@ class CoreModelTPU(object):
                 tf.logging.info(metrics)
 
             # self.generate_images(generate_input_fn, current_step)
-            gc.collect()  # I'm experiencing some kind of memory leak (and seems that other people
-                          # did too). So, seeing that adding 52GBs of RAM doesn't help I'll just
-                          # take the garbage out manually for now.
 
     def generate_images(self, generate_input_fn, current_step):
         tf.logging.info('Start generating images')

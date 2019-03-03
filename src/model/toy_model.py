@@ -9,12 +9,12 @@ import tensorflow as tf
 from core import CoreModelTPU
 
 def _leaky_relu(x):
-  return tf.nn.leaky_relu(x, alpha=0.0)
+  return tf.nn.leaky_relu(x, alpha=0.2)
 
 
 def _batch_norm(x, is_training, name):
   return tf.layers.batch_normalization(
-      x, momentum=0.9, epsilon=1e-5, training=is_training, name=name)
+      x, momentum=0.8, epsilon=1e-5, training=is_training, name=name)
 
 
 class ToyModel(CoreModelTPU):
@@ -27,11 +27,17 @@ class ToyModel(CoreModelTPU):
             tf.logging.debug('Discriminator %s', self.dataset)
             tf.logging.debug('D -- Input %s', x)
 
-            x = tf.layers.Dense(units=50, name='d_fc_1')(x)
-            x = _leaky_relu(_batch_norm(x, is_training, name='d_bn1'))
+            x = tf.layers.Dense(units=500, name='d_fc_1')(x)
+            x = _leaky_relu(x)
+            x = _batch_norm(x, is_training, name='g_bn1')
 
             x = tf.layers.Dense(units=200, name='d_fc_2')(x)
-            x = _leaky_relu(_batch_norm(x, is_training, name='d_bn2'))
+            x = _leaky_relu(x)
+            x = _batch_norm(x, is_training, name='g_bn2')
+
+            x = tf.layers.Dense(units=50, name='d_fc_3')(x)
+            x = _leaky_relu(x)
+            x = _batch_norm(x, is_training, name='g_bn3')
 
             discriminate = tf.layers.Dense(units=1, name='discriminate')(x)
             tf.logging.debug(discriminate)
@@ -49,12 +55,18 @@ class ToyModel(CoreModelTPU):
             tf.logging.debug('Generator %s', self.dataset)
             tf.logging.debug('G -- Input %s', x)
 
-            tf.layers.Dense(units=200, name='g_fc_1')(x)
-            x = _leaky_relu(_batch_norm(x, is_training, name='g_bn1'))
+            x = tf.layers.Dense(units=50, name='g_fc_1')(x)
+            x = _leaky_relu(x)
+            x = _batch_norm(x, is_training, name='g_bn1')
 
-            tf.layers.Dense(units=50, name='g_fc_1')(x)
-            x = _leaky_relu(_batch_norm(x, is_training, name='g_bn1'))
+            x = tf.layers.Dense(units=200, name='g_fc_2')(x)
+            x = _leaky_relu(x)
+            x = _batch_norm(x, is_training, name='g_bn2')
 
-            x = tf.layers.Dense(units=2, name='fc_3')(x)
+            x = tf.layers.Dense(units=500, name='g_fc_3')(x)
+            x = _leaky_relu(x)
+            x = _batch_norm(x, is_training, name='g_bn3')
+
+            x = tf.layers.Dense(units=2, name='generated')(x)
 
             return x

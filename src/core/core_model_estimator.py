@@ -547,7 +547,7 @@ class CoreModelTPU(object):
                     _, projected_img = self.discriminator(real_images, noise_dim=noise_dim)
                     reconstructed_img = self.generator(projected_img)
 
-                    r_loss = tf.losses.mean_squared_error(
+                    r_loss = tf.losses.absolute_difference(
                         labels=tf.layers.flatten(real_images),
                         predictions=tf.layers.flatten(reconstructed_img),
                         reduction=tf.losses.Reduction.NONE)

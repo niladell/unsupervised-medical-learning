@@ -75,7 +75,7 @@ class BasicModel(CoreModelTPU):
                 # 16 X 16
 
 
-            elif self.dataset == 'celebA':
+            elif self.dataset == 'celebA' or self.dataset == 'dSprites':
                 # 64 x 64
                 x = _conv2d(x, df_dim, 5, 2, name='d_conv0')
                 x = _leaky_relu(x)
@@ -116,12 +116,12 @@ class BasicModel(CoreModelTPU):
 
             return discriminate
 
-    def generator(self, x, is_training=True, scope='Generator'):
-        with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
+    def generator(self, x, is_training=True, scope='Generator', reuse=True):
+        with tf.variable_scope(scope, reuse=reuse):
             tf.logging.debug('Generator %s', self.dataset)
             tf.logging.debug('G -- Input %s', x)
 
-            gf_dim = 128  #   Still not sure of this:
+            gf_dim = 64  #   Still not sure of this:
                          # From carpedm20 "Dimension of gen filters in first conv layer"
 
 
@@ -152,6 +152,16 @@ class BasicModel(CoreModelTPU):
                 x = _leaky_relu(_batch_norm(x, is_training, name='g_bn5'))
                 tf.logging.debug(x)
 
+            if  self.dataset == 'dSprites':
+                x = _deconv2d(x, gf_dim, 4, 2, name='g_dconv4')
+                x = _leaky_relu(_batch_norm(x, is_training, name='g_bn4'))
+                tf.logging.debug(x)
+                # 32 x 32
+
+                x = _deconv2d(x, 1, 4, 2, name='g_dconv5')
+                x = _leaky_relu(_batch_norm(x, is_training, name='g_bn5'))
+                tf.logging.debug(x)
+
             if 'CQ500' in self.dataset.upper():
                 x = _deconv2d(x, gf_dim, 4, 2, name='g_dconv4')
                 x = _leaky_relu(_batch_norm(x, is_training, name='g_bn4'))
@@ -179,10 +189,11 @@ class BasicModel(CoreModelTPU):
                 x = _leaky_relu(_batch_norm(x, is_training, name='g_bn8'))
                 tf.logging.debug(x)
                 # 512 x 512
-            else:
-                x = _deconv2d(x, 3, 4, 2, name='g_dconv6')
-                x = _leaky_relu(_batch_norm(x, is_training, name='g_bn6'))
-                tf.logging.debug(x)
+            # TODO WTF is this?
+            # else:
+            #     x = _deconv2d(x, 3, 4, 2, name='g_dconv6')
+            #     x = _leaky_relu(_batch_norm(x, is_training, name='g_bn6'))
+            #     tf.logging.debug(x)
             x = tf.tanh(x)
             tf.logging.debug(x)
 

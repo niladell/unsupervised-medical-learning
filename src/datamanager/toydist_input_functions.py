@@ -1,6 +1,5 @@
 import os
 import numpy as np
-import random
 
 import tensorflow as tf
 USE_ALTERNATIVE = False
@@ -11,15 +10,35 @@ except ImportError:
     Dataset = tf.data.Dataset
     USE_ALTERNATIVE = True
 
-NUMBER_OF_GAUSSIANS = 4
+# NUMBER_OF_GAUSSIANS = 1
 
-def sample_toy_distr():
-    x = np.random.normal(0, 0.1)
-    y = np.random.normal(0, 0.1)
-    # centers = [(0,2), (2,0), (2,2)]
-    centers = [(i*5,j*10) for i in range(NUMBER_OF_GAUSSIANS) for j in range(NUMBER_OF_GAUSSIANS)]
-    mu_x, mu_y = random.sample(centers,1)[0]
-    return [x + mu_x, y + mu_y]
+# def sample_toy_distr(number_of_gaussians):
+#     """ Grid layed gaussians"""
+#     x = np.random.normal(0, 0.05)
+#     y = np.random.normal(0, 0.05)
+#     # centers = [(0,-1), (1,0), (-0.5,0.5)]
+#     centers = np.vstack([[i,j] for i in range(number_of_gaussians) for j in range(number_of_gaussians)])
+#     centers = centers - np.mean(centers, axis=0)
+
+#     center = np.random.randint(0, centers.shape[0])
+#     mu_x, mu_y = centers[center]
+#     return [x + mu_x, y + mu_y]
+
+def sample_toy_distr(number_of_gaussians):
+    """ Circle layed gaussians   """
+
+    x = np.random.normal(0, 0.02)
+    y = np.random.normal(0, 0.02)
+    # centers = [(0,-1), (1,0), (-0.5,0.5)]
+    # centers = np.vstack([[i,j] for i in range(number_of_gaussians) for j in range(number_of_gaussians)])
+    centers = np.array([i for i in range(number_of_gaussians)])
+    centers = 2*np.pi*centers/np.max(centers + 1e-8)
+    center = np.random.randint(0, centers.shape[0])
+    c = centers[center]
+    cx = np.cos(c)*2
+    cy = np.sin(c)*2
+
+    return np.array([x + cx, y + cy])
 
 def input_fn(params):
     """Read CIFAR input data from a TFRecord dataset.
@@ -28,11 +47,13 @@ def input_fn(params):
     batch_size = params['batch_size']
     data_dir = params['data_dir']
     noise_dim = params['noise_dim']
+    assert 'number_of_gaussians' in params
+    number_of_gaussians = params['number_of_gaussians']
 
     def gen():
         """Parses a single tf.Example into image and label tensors."""
         for _ in range(100000):
-            data = sample_toy_distr()
+            data = sample_toy_distr(number_of_gaussians)
             random_noise = np.random.normal(np.zeros(noise_dim))
 
             yield data, random_noise, 0
@@ -45,7 +66,7 @@ def input_fn(params):
                                 output_types=(tf.float32, tf.float32, tf.float32),
                                 output_shapes=(tf.TensorShape([2]), tf.TensorShape([noise_dim]), tf.TensorShape([]))
                             )
-    dataset = dataset.prefetch(4 * batch_size).cache()#.repeat()
+    # dataset = dataset.prefetch(4 * batch_size).cache()#.repeat()
     if USE_ALTERNATIVE:
         dataset = dataset.apply(
             tf.contrib.data.batch_and_drop_remainder(batch_size))
@@ -64,33 +85,6 @@ def input_fn(params):
     tf.logging.debug('Input_fn: Features %s, Labels %s', features, labels)
     return features, labels
 
-# def input_fn(params):
-#     """Input function for generating samples for PREDICT mode.
-
-#     Generates a single Tensor of fixed random noise. Use tf.data.Dataset to
-#     signal to the estimator when to terminate the generator returned by
-#     predict().
-
-#     Args:
-#         params: param `dict` passed by TPUEstimator.
-
-#     Returns:
-#         1-element `dict` containing the randomly generated noise.
-#     """
-#     batch_size = params['batch_size']
-#     noise_dim = params['noise_dim']
-#     dataset = tf.data.Dataset.from_tensor_slices(
-#             (
-#                 {
-#                     'real_images' : tf.constant(toy_samples(batch_size), dtype=tf.float32),
-#                     'random_noise': tf.constant(noise_vector(batch_size, noise_dim), dtype=tf.float32)
-#                 },
-#                 tf.constant([[]]*batch_size, dtype=tf.float32))
-#         )
-
-#     features, labels = dataset.make_one_shot_iterator().get_next()
-#     tf.logging.debug('Input_fn: Features %s', features)
-#     return features, labels
 
 def noise_input_fn(params):
     """Input function for generating samples for PREDICT mode.

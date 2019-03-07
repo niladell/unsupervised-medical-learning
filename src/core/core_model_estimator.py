@@ -355,48 +355,48 @@ class CoreModelTPU(object):
 
 
             else:
-                with tf.variable_scope('classicGAN_loss'):
-                    # Create the labels
-                    true_label = tf.ones_like(d_logits_real)
-                    fake_label = tf.zeros_like(d_logits_generated)
-                    #  We invert the labels for the generator training (ganTricks)
-                    true_label_g = tf.ones_like(d_logits_generated)
+            # with tf.variable_scope('classicGAN_loss'):
+                # Create the labels
+                true_label = tf.ones_like(d_logits_real)
+                fake_label = tf.zeros_like(d_logits_generated)
+                #  We invert the labels for the generator training (ganTricks)
+                true_label_g = tf.ones_like(d_logits_generated)
 
-                    # Soften the labels (ganTricks)
-                    if self.soft_label_strength != 0:
-                        true_label += tf.random_uniform(true_label.shape,
-                                                    minval=-self.soft_label_strength,
-                                                    maxval=self.soft_label_strength)
-                        true_label = tf.clip_by_value(
-                                                true_label, 0, 1)
+                # Soften the labels (ganTricks)
+                if self.soft_label_strength != 0:
+                    true_label += tf.random_uniform(true_label.shape,
+                                                minval=-self.soft_label_strength,
+                                                maxval=self.soft_label_strength)
+                    true_label = tf.clip_by_value(
+                                            true_label, 0, 1)
 
-                        fake_label += tf.random_uniform(fake_label.shape,
-                                                    minval=-self.soft_label_strength,
-                                                    maxval=self.soft_label_strength)
-                        fake_label = tf.clip_by_value(
-                                                fake_label, 0, 1)
+                    fake_label += tf.random_uniform(fake_label.shape,
+                                                minval=-self.soft_label_strength,
+                                                maxval=self.soft_label_strength)
+                    fake_label = tf.clip_by_value(
+                                            fake_label, 0, 1)
 
-                        true_label_g += tf.random_uniform(true_label_g.shape,
-                                                    minval=-self.soft_label_strength,
-                                                    maxval=self.soft_label_strength)
-                        true_label_g = tf.clip_by_value(
-                                                true_label_g, 0, 1)
-                    with tf.variable_scope('Discriminator'):
-                        # Calculate discriminator loss
-                        d_loss_on_data = tf.nn.sigmoid_cross_entropy_with_logits(
-                            labels=true_label,
-                            logits=d_logits_real)
-                        d_loss_on_gen = tf.nn.sigmoid_cross_entropy_with_logits(
-                            labels=fake_label,
-                            logits=d_logits_generated)
+                    true_label_g += tf.random_uniform(true_label_g.shape,
+                                                minval=-self.soft_label_strength,
+                                                maxval=self.soft_label_strength)
+                    true_label_g = tf.clip_by_value(
+                                            true_label_g, 0, 1)
+                # with tf.variable_scope('Discriminator'):
+                # Calculate discriminator loss
+                d_loss_on_data = tf.nn.sigmoid_cross_entropy_with_logits(
+                    labels=true_label,
+                    logits=d_logits_real)
+                d_loss_on_gen = tf.nn.sigmoid_cross_entropy_with_logits(
+                    labels=fake_label,
+                    logits=d_logits_generated)
 
-                        d_loss = d_loss_on_data + d_loss_on_gen
+                d_loss = 1/2 * (d_loss_on_data + d_loss_on_gen)
 
-                    with tf.variable_scope('Generator'):
-                        # Calculate generator loss
-                        g_loss = tf.nn.sigmoid_cross_entropy_with_logits(
-                            labels=true_label_g,
-                            logits=d_logits_generated)
+            with tf.variable_scope('Generator'):
+                # Calculate generator loss
+                g_loss = tf.nn.sigmoid_cross_entropy_with_logits(
+                    labels=true_label_g,
+                    logits=d_logits_generated)
 
             with tf.variable_scope('Encoder'):
                 # Create independent encoder loss
@@ -428,23 +428,23 @@ class CoreModelTPU(object):
             The losses for the Discriminator, Generator, Encoder
         """
         if e_loss is not None:
-            with tf.variable_scope('loss_commbine'):
-                with tf.variable_scope('Discriminator'):
-                    #   Discriminator:
-                    if self.use_encoder and self.encoder == 'ATTACHED':
-                        d_loss = d_loss + self.e_loss_lambda * e_loss
+            # with tf.variable_scope('loss_commbine'):
+            #     with tf.variable_scope('Discriminator'):
+            #   Discriminator:
+            if self.use_encoder and self.encoder == 'ATTACHED':
+                d_loss = d_loss + self.e_loss_lambda * e_loss
 
-                with tf.variable_scope('Generator'):
-                    #   Generator:
-                    # Do we use the encoder loss to train on G or is it independent
-                    e_loss_on_g = True
-                    if self.use_encoder and e_loss_on_g:
-                        g_loss = g_loss + self.e_loss_lambda * e_loss
+                # with tf.variable_scope('Generator'):
+            #   Generator:
+            # Do we use the encoder loss to train on G or is it independent
+            e_loss_on_g = True
+            if self.use_encoder and e_loss_on_g:
+                g_loss = g_loss + self.e_loss_lambda * e_loss
 
-                with tf.variable_scope('Encoder'):
-                    #  Encoder:
-                    if self.use_encoder:
-                        e_loss = tf.reduce_mean(e_loss)
+                # with tf.variable_scope('Encoder'):
+            #  Encoder:
+            if self.use_encoder:
+                e_loss = tf.reduce_mean(e_loss)
 
         d_loss = tf.reduce_mean(d_loss)
         g_loss = tf.reduce_mean(g_loss)
@@ -470,7 +470,7 @@ class CoreModelTPU(object):
                 random_noise = features['random_noise']
                 predictions = {
                     'generated_images': self.generator(
-                                            random_noise, is_training=False)
+                                            random_noise, is_training=False, reuse=tf.AUTO_REUSE)
                 }
 
                 return tf.contrib.tpu.TPUEstimatorSpec(mode=mode, predictions=predictions)
@@ -480,6 +480,8 @@ class CoreModelTPU(object):
             noise_dim = params['noise_dim']
             real_images = features['real_images']
             random_noise = features['random_noise']
+            tf.logging.debug('Real images {}'.format(real_images))
+            tf.logging.debug('Random noise {}'.format(random_noise))
 
             hook =  \
                 tf.train.LoggingTensorHook( {
@@ -491,30 +493,36 @@ class CoreModelTPU(object):
 
             is_training = (mode == tf.estimator.ModeKeys.TRAIN)
             generated_images = self.generator(random_noise,
-                                              is_training=is_training)
-
-            # Get logits from discriminator for real data
-            d_on_data_logits = tf.squeeze(self.discriminator(real_images))
+                                              is_training=is_training, reuse=tf.AUTO_REUSE)
 
             # Get logits from the encoder and discriminator for the generator
             if self.use_encoder:
                 if self.encoder == 'ATTACHED':
+                    # Get logits from discriminator for real data
+                    d_on_data_logits, _ = self.discriminator(real_images, noise_dim=noise_dim)
+                    d_on_data_logits = tf.squeeze(d_on_data_logits)
                      # If we use and embedded encoder we create alongside the discriminator
                     d_on_g_logits, g_logits_encoded =\
-                       self.discriminator(generated_images, noise_dim=noise_dim)
+                       self.discriminator(generated_images, noise_dim=noise_dim, reuse=True)
                 elif self.encoder == 'INDEPENDENT':
                     _, g_logits_encoded = self.discriminator(generated_images,
                                                             scope='Encoder',
                                                             noise_dim=noise_dim,
                                                             reuse=None)
+
+                    # Get logits from discriminator for real data
+                    d_on_data_logits = tf.squeeze(self.discriminator(real_images))
                     d_on_g_logits = tf.squeeze(self.discriminator(generated_images,
-                                                            scope='Discriminator'))
+                                                            scope='Discriminator', reuse=True))
                 else:
                     raise NameError('No encoder type {} defined'.format(self.encoder))
             else:
                 # Regular GAN w/o encoder
                 g_logits_encoded = None
-                d_on_g_logits = self.discriminator(generated_images)
+
+                # Get logits from discriminator for real data
+                d_on_data_logits = tf.squeeze(self.discriminator(real_images))
+                d_on_g_logits = self.discriminator(generated_images, reuse=True)
             d_on_g_logits = tf.squeeze(d_on_g_logits)
 
 
@@ -531,49 +539,30 @@ class CoreModelTPU(object):
                                                         generated_images=generated_images,
                                                         batch_size=batch_size)
 
-            if self.use_window_loss:
-                with tf.variable_scope('Window'):
-                    # TODO is this the optimal brain window?
-                    window = (-0.3, -0.2)
-                    # perturb_down = 0.1 * np.random.random() - 0.05
-                    # perturb_up = 0.1 * np.random.random() - 0.05
-                    # windwo = (perturb_down + window[0], perturb_up + window[1])
-                    real_window = slice_windowing(real_images, window=window, up_val=1, low_val=0)
-                    generated_window = slice_windowing(real_images, window=window, up_val=1, low_val=0)
-                    d_on_real_window = tf.squeeze(self.discriminator(real_window))
-                    d_on_g_window = tf.squeeze(self.discriminator(generated_window))
-                    d_loss_window, g_loss_window, _ = self.create_losses(d_logits_real=d_on_data_logits,
-                                                                        d_logits_generated=d_on_g_logits,
-                                                                        encoded_logits_generated=g_logits_encoded,
-                                                                        input_noise=random_noise,
-                                                                        real_images=real_images,
-                                                                        generated_images=generated_images,
-                                                                        batch_size=batch_size)
-                    d_loss = d_loss + self.lambda_window * d_loss_window
-                    g_loss = g_loss + self.lambda_window * g_loss_window
 
             # Combine losses
             d_loss_train, g_loss_train, e_loss_train = self.combine_losses(d_loss, g_loss, e_loss)
             if self.reconstruction_loss:
-                if not self.use_encoder or self.use_encoder and self.encoder.upper() == 'INDEPENDENT':
+                if not self.use_encoder: # or self.use_encoder and self.encoder.upper() == 'INDEPENDENT':
                     raise NotImplementedError('Reconstruction loss not implemented for Independent encoder')
                     # TODO Implement for independent
-                with tf.variable_scope('reconstruction'):
-                    _, projected_img = self.discriminator(real_images, noise_dim=noise_dim)
-                    reconstructed_img = self.generator(projected_img)
+                # with tf.variable_scope('reconstruction'):
+                scope = 'Discriminator' if self.encoder=='ATTACHED' else 'Encoder'
+                _, projected_img = self.discriminator(real_images, noise_dim=noise_dim, scope=scope, reuse=True)
+                reconstructed_img = self.generator(projected_img, reuse=True)
 
-                    r_loss = tf.losses.mean_squared_error(
-                        labels=tf.layers.flatten(real_images),
-                        predictions=tf.layers.flatten(reconstructed_img),
-                        reduction=tf.losses.Reduction.NONE)
-                    tf.logging.debug('R Loss %s', r_loss)
-                    r_loss = tf.reduce_sum(r_loss, axis=1)
-                    tf.logging.debug('R Loss %s', r_loss)
-                    r_loss_train = tf.reduce_mean(r_loss)
-                    tf.logging.debug('R Loss train %s', r_loss_train)
-                    g_loss_train += r_loss_train
-                    d_loss_train += r_loss_train
-                    e_loss_train += r_loss_train
+                r_loss = tf.losses.mean_squared_error(
+                    labels=tf.layers.flatten(real_images),
+                    predictions=tf.layers.flatten(reconstructed_img),
+                    reduction=tf.losses.Reduction.NONE)
+                tf.logging.debug('R Loss %s', r_loss)
+                r_loss = tf.reduce_sum(r_loss, axis=1)
+                tf.logging.debug('R Loss %s', r_loss)
+                r_loss_train = tf.reduce_mean(r_loss)
+                tf.logging.debug('R Loss train %s', r_loss_train)
+                    # g_loss_train += r_loss_train
+                    # d_loss_train += r_loss_train
+                    # e_loss_train += r_loss_train
             # d_loss_train, g_loss_train, e_loss_train = d_loss, g_loss, e_loss
 
 
@@ -592,8 +581,8 @@ class CoreModelTPU(object):
                     if self.use_encoder and self.encoder=='INDEPENDENT':
                         e_optimizer =\
                              tf.contrib.tpu.CrossShardOptimizer(e_optimizer)
-                        r_optimizer =\
-                             tf.contrib.tpu.CrossShardOptimizer(r_optimizer)
+                    r_optimizer =\
+                            tf.contrib.tpu.CrossShardOptimizer(r_optimizer)
 
                 with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
                     critic_steps = self.wgan_n if self.wgan_penalty else 1
@@ -618,17 +607,17 @@ class CoreModelTPU(object):
                     # If it is not independent it's updated under Discriminator
                     if self.use_encoder and self.encoder=='INDEPENDENT':
                         e_step = e_optimizer.minimize(
-                            e_loss_train,
-                            var_list=tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
-                                                scope='Encoder'))
+                            e_loss_train)
+                            # var_list=tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
+                            #                     scope='Encoder'))
                         ops.append(e_step)
 
-                    # if self.reconstruction_loss:
-                    #     r_step = r_optimizer.minimize(
-                    #         r_loss_train)
-                    #         # var_list=tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
-                    #         #                     scope='Encoder')) # FOR ALL?
-                    #     ops.append(r_step)
+                    if self.reconstruction_loss:
+                        r_step = r_optimizer.minimize(
+                            r_loss_train)
+                            # var_list=tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
+                            #                     scope='Encoder')) # FOR ALL?
+                        ops.append(r_step)
 
 
                     increment_step = tf.assign_add(tf.train.get_or_create_global_step(), 1)
@@ -664,10 +653,11 @@ class CoreModelTPU(object):
                             'generator_loss': tf.metrics.mean(g_loss),
                             'discriminator_accuracy': tf.metrics.mean(accuracy)
                             }
+
                         if self.use_encoder:
                             metrics['encoder_loss'] = tf.metrics.mean(e_loss)
                         if self.reconstruction_loss:
-                            metrics['reconstruction_loss']: tf.metrics.mean(r_loss)
+                            metrics['reconstruction_loss'] = tf.metrics.mean(r_loss)
 
                         tf.logging.debug('Metrics %s', metrics)
 
@@ -773,8 +763,11 @@ class CoreModelTPU(object):
                                         steps=max(self.num_eval_images // self.batch_size,1))
                 tf.logging.info('Finished evaluating')
                 tf.logging.info(metrics)
+            # try:
+            self.generate_images(generate_input_fn, current_step)
+            # except:
+            #     tf.logging.warning("Couldn't genereate samples.")
 
-            # self.generate_images(generate_input_fn, current_step)
 
     def generate_images(self, generate_input_fn, current_step):
         tf.logging.info('Start generating images')

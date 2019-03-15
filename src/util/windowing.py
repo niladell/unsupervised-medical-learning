@@ -78,18 +78,16 @@ def slice_windowing(slice, window):
     return new_data
 
 
-
-
-
-def convert_to_HU(pixel_array, slope, intercept):
-    HU = pixel_array*slope + intercept
+def convert_to_HU(dcm)
+    HU = dcm.pixel_array*dcm.RescaleSlope + dcm.RescaleIntercept
     return HU
 
 def define_window(window_name):
+    # https://radiopaedia.org/articles/windowing-ct?lang=gb.
     wl = win_dict[window_name]['wl']
     ww = win_dict[window_name]['ww']
-    max_window = wl + ww
-    min_window = wl - ww
+    max_window = wl + ww/2
+    min_window = wl - ww/2
     return [min_window, max_window]
 
 
@@ -100,10 +98,12 @@ def define_window(window_name):
 dcm = pydicom.dcmread('/Users/ines/Desktop/test/Unknown Study/CT PLAIN THIN/CT000006.dcm')
 
 new_wind_dcm = np.load('/Users/ines/Downloads/windowed_dcm.npy')
+new_wind_dcm_half = np.load('/Users/ines/Downloads/win_HU_half.npy')
+
 dcm_HU = np.load('/Users/ines/Downloads/dcm_HU.npy')
 
 plt.figure();
-plt.imshow(new_wind_dcm, cmap=plt.cm.gray, interpolation='nearest');
+plt.imshow(new_wind_dcm_half, cmap=plt.cm.gray, interpolation='nearest');
 plt.show()
 
 plt.figure();

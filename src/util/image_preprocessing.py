@@ -3,16 +3,6 @@
 Some functions related to downloading and adapting the celebA dataset have been modified from 'nmhkahn/DCGAN-tensorflow-slim' (Github repo)
 """
 
-import scipy
-import numpy as np
-import pydicom
-import os
-import matplotlib.pyplot as plt
-import re
-from scripts.retrieve_all_dcms import list_forbidden_folders
-from src.util.windowing import slice_windowing, win_dict
-
-
 
 def center_crop( im,
                 output_height,

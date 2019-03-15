@@ -41,7 +41,7 @@ def upsample(x, n):
     return x
   return tf.batch_to_space(tf.tile(x, [n**2, 1, 1, 1]), [[0, 0], [0, 0]], n)
 
-def g_block(x, filters, is_training, name):
+def     g_block(x, filters, is_training, name):
   """Residual Block
 
   For a fast overview see Big GAN paper. Based on self-attention GAN code.

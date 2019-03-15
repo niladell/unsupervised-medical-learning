@@ -19,11 +19,9 @@ from scripts.retrieve_all_dcms import list_forbidden_folders
 import re
 
 
-dcm = pydicom.dcmread('/Users/ines/Desktop/subjects copy/CT000001.dcm')
+# dcm_array = np.load('dcms_pix.npy')
 
-dcm_array = np.load('dcms_pix.npy')
-
-slice = dcm_array[0, :, :]
+# slice = dcm_array[0, :, :]
 
 # ###################################################################
 # # Getting all the slopes and intercepts for a bunch of dcm slices #
@@ -103,35 +101,42 @@ def slice_windowing(slice, window):
             new_data[i,j]=pixel_windowing(slice[i,j], window)
     return new_data
 
-
-slice[slice == -2000] = 0
-slice_rescaled = (slice/slice.max())*2 - 1
-
-# View slice_rescaled value distributions:
-x = slice_rescaled.flatten()
-
-# Plot of the rescaled image, before applying windowing:
-plt.hist(x, bins=40)
-plt.show()
-
-# Applying windowing:
-windowed_rescaled_slice = slice_windowing(slice= slice_rescaled, window=[-0.3, -0.2])
+#
+# slice[slice == -2000] = 0
+# slice_rescaled = (slice/slice.max())*2 - 1
+#
+# # View slice_rescaled value distributions:
+# x = slice_rescaled.flatten()
+#
+# # Plot of the rescaled image, before applying windowing:
+# plt.hist(x, bins=40)
+# plt.show()
+#
+# # Applying windowing:
+# windowed_rescaled_slice = slice_windowing(slice= slice_rescaled, window=[-0.3, -0.2])
 
 '''
 List of good brain windows:
     - dcm_array[0, :, :] : window=[-0.21, -0.18]
     - 
 '''
-
-# Rescaled image:
-plt.figure();
-plt.imshow(slice_rescaled, cmap=plt.cm.gray, interpolation='nearest');
-plt.show()
-
-# Rescaled and windowed image:
-plt.figure();
-plt.imshow(windowed_rescaled_slice, cmap=plt.cm.gray, interpolation='nearest');
-plt.show()
+#
+# # Rescaled image:
+# plt.figure();
+# plt.imshow(slice_rescaled, cmap=plt.cm.gray, interpolation='nearest');
+# plt.show()
+#
+# # Rescaled and windowed image:
+# plt.figure();
+# plt.imshow(windowed_rescaled_slice, cmap=plt.cm.gray, interpolation='nearest');
+# plt.show()
 
 # import scipy.io
 # scipy.io.savemat('something.mat', mdict={'arr': windowed_rescaled_slice, 'orig_arr': slice_rescaled})
+
+
+plt.figure();
+plt.imshow(new_wind_dcm, cmap=plt.cm.gray, interpolation='nearest');
+plt.show()
+
+

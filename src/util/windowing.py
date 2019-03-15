@@ -8,59 +8,18 @@ The assumptions that we make are:
 - Air corresponds to -1000 and will be black, hence, we correspond it to -1.
 
 '''
-from PIL import Image
+
 import numpy as np
-# import skimage.io as io
-import tensorflow as tf
 import pydicom
 import os
 import matplotlib.pyplot as plt
-from scripts.retrieve_all_dcms import list_forbidden_folders
 import re
+from scripts.retrieve_all_dcms import list_forbidden_folders
+
+re_forbidden_folders = re.compile(r'\b(?:%s)\b' % '|'.join(list_forbidden_folders))
 
 
-# dcm_array = np.load('dcms_pix.npy')
-
-# slice = dcm_array[0, :, :]
-
-# ###################################################################
-# # Getting all the slopes and intercepts for a bunch of dcm slices #
-# ###################################################################
-#
-# # list_forbidden_folders.append('CT BRAIN PLAIN')
-# # list_forbidden_folders.append('CT Thin PLAIN')
-# # list_forbidden_folders.append('CT PLAIN')
-# re_forbidden_folders = re.compile(r'\b(?:%s)\b' % '|'.join(list_forbidden_folders))
-#
-#
-# slopes = []
-# intercepts = []
-#
-# def get_dcms(path):
-#     for dirpath, dirname, filenames in os.walk(path):
-#         for file in filenames:
-#             pattern = re.compile(r'.dcm$')
-#             m = re.search(pattern, file)
-#             if m is not None and re_forbidden_folders.search(dirpath) is None:
-#                 print(dirpath+'/'+file)
-#                 dcm = pydicom.dcmread(dirpath+'/'+file)
-#                 slope = int(dcm.data_element('RescaleSlope').value)
-#                 intercept = int(dcm.data_element('RescaleIntercept').value)
-#                 slopes.append(slope)
-#                 intercepts.append(intercept)
-#
-#
-#
-# path = '/Users/ines/Desktop/subjects copy/'
-# get_dcms(path)
-#
-# mylist1 = list(set(slopes))  # o valor parece ser sempre 1
-# mylist2 = list(set(intercepts))  # o valor parece ser sempre -1024
-#
-# #########################################################
-
-# Not yet used
-
+# Dictionary with the most relevant windows:
 win_dict = {
             'air':
                 {'wl':-1000, 'ww':0},
@@ -78,6 +37,23 @@ win_dict = {
                 {'wl': 40, 'ww': 375}}
 
 ###########################################################
+
+slopes = []
+intercepts = []
+def get_dcms(path):
+    for dirpath, dirname, filenames in os.walk(path):
+        print(filenames)
+        for file in filenames:
+            pattern = re.compile(r'.dcm$')
+            m = re.search(pattern, file)
+            if m is not None and re_forbidden_folders.search(dirpath) is None:
+                print(dirpath+'/'+file)
+                dcm = pydicom.dcmread(dirpath+'/'+file)
+                slope = int(dcm.data_element('RescaleSlope').value)
+                intercept = int(dcm.data_element('RescaleIntercept').value)
+                slopes.append(slope)
+                intercepts.append(intercept)
+
 
 def pixel_windowing(rescaled_pixel_value, window):
     max_density = window[1]
@@ -101,42 +77,38 @@ def slice_windowing(slice, window):
             new_data[i,j]=pixel_windowing(slice[i,j], window)
     return new_data
 
-#
-# slice[slice == -2000] = 0
-# slice_rescaled = (slice/slice.max())*2 - 1
-#
-# # View slice_rescaled value distributions:
-# x = slice_rescaled.flatten()
-#
-# # Plot of the rescaled image, before applying windowing:
-# plt.hist(x, bins=40)
-# plt.show()
-#
-# # Applying windowing:
-# windowed_rescaled_slice = slice_windowing(slice= slice_rescaled, window=[-0.3, -0.2])
 
-'''
-List of good brain windows:
-    - dcm_array[0, :, :] : window=[-0.21, -0.18]
-    - 
-'''
-#
-# # Rescaled image:
-# plt.figure();
-# plt.imshow(slice_rescaled, cmap=plt.cm.gray, interpolation='nearest');
-# plt.show()
-#
-# # Rescaled and windowed image:
-# plt.figure();
-# plt.imshow(windowed_rescaled_slice, cmap=plt.cm.gray, interpolation='nearest');
-# plt.show()
 
-# import scipy.io
-# scipy.io.savemat('something.mat', mdict={'arr': windowed_rescaled_slice, 'orig_arr': slice_rescaled})
 
+
+def convert_to_HU(pixel_array, slope, intercept):
+    HU = pixel_array*slope + intercept
+    return HU
+
+def define_window(window_name):
+    wl = win_dict[window_name]['wl']
+    ww = win_dict[window_name]['ww']
+    max_window = wl + ww
+    min_window = wl - ww
+    return [min_window, max_window]
+
+
+######################################
+#      TESTING WITH AN EXAMPLE       #
+######################################
+
+dcm = pydicom.dcmread('/Users/ines/Desktop/test/Unknown Study/CT PLAIN THIN/CT000006.dcm')
+
+new_wind_dcm = np.load('/Users/ines/Downloads/windowed_dcm.npy')
+dcm_HU = np.load('/Users/ines/Downloads/dcm_HU.npy')
 
 plt.figure();
 plt.imshow(new_wind_dcm, cmap=plt.cm.gray, interpolation='nearest');
 plt.show()
+
+plt.figure();
+plt.imshow(dcm_HU, cmap=plt.cm.gray, interpolation='nearest');
+plt.show()
+
 
 

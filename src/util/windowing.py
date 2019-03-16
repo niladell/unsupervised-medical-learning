@@ -78,7 +78,7 @@ def slice_windowing(slice, window):
     return new_data
 
 
-def convert_to_HU(dcm)
+def convert_to_HU(dcm):
     HU = dcm.pixel_array*dcm.RescaleSlope + dcm.RescaleIntercept
     return HU
 
@@ -109,6 +109,3 @@ plt.show()
 plt.figure();
 plt.imshow(dcm_HU, cmap=plt.cm.gray, interpolation='nearest');
 plt.show()
-
-
-

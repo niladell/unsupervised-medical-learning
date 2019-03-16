@@ -1,4 +1,4 @@
-import numpy as np
+  import numpy as np
 from skimage.transform import rescale
 import tensorflow as tf
 import pydicom

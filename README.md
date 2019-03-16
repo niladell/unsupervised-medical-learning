@@ -123,7 +123,7 @@ The ```scripts/``` folder contains a series of scripts which were necessary to a
 manage the data. The CQ500 dataset in particular required a lot of data analysis and special
 handling, given that the original data is in a DICOM format.
 
-## Happy model running!
+## Happy model running! 🏎
 Spotted an error? Feedback and pull requests are welcome!
 
 

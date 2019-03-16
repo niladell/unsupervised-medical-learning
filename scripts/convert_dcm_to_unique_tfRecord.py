@@ -4,7 +4,7 @@ import tensorflow as tf
 import pydicom
 import os
 import matplotlib.pyplot as plt
-
+from scripts.cq500_channel_creation import create_channeled_image
 
 def get_list_of_dcm_path(txt_path):
     with open(txt_path, "r") as file:
@@ -29,8 +29,10 @@ def convertToTfRecord(list_of_dcm_paths, out_file, scaling_factor, do_plot=False
     writer = tf.python_io.TFRecordWriter(tfrecords_outfile)
 
     for idx, filepath in enumerate(list_of_dcms):
-        ds = pydicom.dcmread(filepath)
-        img_raw = ds.pixel_array
+        # ds = pydicom.dcmread(filepath)
+        # img_raw = ds.pixel_array
+
+        img_raw = create_channeled_image(filepath)
 
         # If we use a mask we can ignore quite a number of outputs, and avoud
         # propagating useless stuff

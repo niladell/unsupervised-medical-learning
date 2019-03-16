@@ -129,7 +129,7 @@ Spotted an error? Feedback and pull requests are welcome!
 
 ## The authors
 Nil Adell Mill  
-Inês Borges Pereira  
+Inês Pereira  
 Patrick Haller  
 Lama Saouma  
 

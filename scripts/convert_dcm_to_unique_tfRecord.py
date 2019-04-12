@@ -1,6 +1,6 @@
 import numpy as np
 from skimage.transform import rescale
-import tensorflow as tf
+# import tensorflow as tf
 import pydicom
 import os
 import matplotlib.pyplot as plt
@@ -12,21 +12,21 @@ def get_list_of_dcm_path(txt_path):
         return lines
 
 
-def _bytes_feature(value):
-    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
+# def _bytes_feature(value):
+#     return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
 
 
-def _int64_feature(value):
-    return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
+# def _int64_feature(value):
+#     return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
 
 
-def _float_feature(value):
-    return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
+# def _float_feature(value):
+#     return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
 
 
 def convertToTfRecord(list_of_dcm_paths, out_file, scaling_factor, do_plot=False):
     tfrecords_outfile = out_file  # 'huge_Q500.tfrecord'
-    writer = tf.python_io.TFRecordWriter(tfrecords_outfile)
+    # writer = tf.python_io.TFRecordWriter(tfrecords_outfile)
 
     for idx, filepath in enumerate(list_of_dcms):
         # ds = pydicom.dcmread(filepath)
@@ -93,27 +93,36 @@ def convertToTfRecord(list_of_dcm_paths, out_file, scaling_factor, do_plot=False
             figManager.window.showMaximized()
             plt.show()
 
+        ## For the new version of the cluster we need this in two steps:
+
         patientID = ds.PatientID
         z = float(ds.SliceLocation)
         dcmname = os.path.basename(os.path.normpath(filepath))
-        example = tf.train.Example(
-            features=tf.train.Features(
-                feature={
-                    'filename': _bytes_feature(dcmname.encode()),
-                    'id': _bytes_feature(patientID.encode()),
-                    'z-slice': _float_feature(z),
-                    'height': _int64_feature(height),
-                    'width': _int64_feature(width),
-                    'max_val': _int64_feature(max_val),
-                    'image': _bytes_feature(img_raw.tobytes()),  # !! Needs to be reconstructed with float32!!!
-                    'mask': _bytes_feature(mask.tobytes())}
-            )
-        )
+        df = {
+            'image': img_raw.tobytes(),
+            'filename': dcmname.encode(),
+            'id': patientID.encode()
+        }
+        np.save(filepath + '.npy', df)
+        # This will be done separately
+        # example = tf.train.Example(
+        #     features=tf.train.Features(
+        #         feature={
+        #             'filename': _bytes_feature(dcmname.encode()),
+        #             'id': _bytes_feature(patientID.encode()),
+        #             'z-slice': _float_feature(z),
+        #             'height': _int64_feature(height),
+        #             'width': _int64_feature(width),
+        #             'max_val': _int64_feature(max_val),
+        #             'image': _bytes_feature(img_raw.tobytes()),  # !! Needs to be reconstructed with float32!!!
+        #             'mask': _bytes_feature(mask.tobytes())}
+        #     )
+        # )
         if idx % 10 == 0:
             print('{}/{} -- {}: {} {} (z{})'.format(idx, len(list_of_dcms), patientID, dcmname,img_raw.shape, z), flush=True)
 
-        writer.write(example.SerializeToString())
-    writer.close()
+        # writer.write(example.SerializeToString())
+    # writer.close()
 
 
 if __name__ == '__main__':

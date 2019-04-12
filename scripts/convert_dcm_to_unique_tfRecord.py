@@ -1,10 +1,10 @@
-  import numpy as np
+import numpy as np
 from skimage.transform import rescale
 import tensorflow as tf
 import pydicom
 import os
 import matplotlib.pyplot as plt
-from scripts.cq500_channel_creation import create_channeled_image
+from cq500_channel_creation import create_channeled_image
 
 def get_list_of_dcm_path(txt_path):
     with open(txt_path, "r") as file:

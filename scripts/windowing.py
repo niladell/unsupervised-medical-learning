@@ -102,10 +102,10 @@ new_wind_dcm_half = np.load('/Users/ines/Downloads/win_HU_half.npy')
 
 dcm_HU = np.load('/Users/ines/Downloads/dcm_HU.npy')
 
-plt.figure();
-plt.imshow(new_wind_dcm_half, cmap=plt.cm.gray, interpolation='nearest');
+plt.figure()
+plt.imshow(new_wind_dcm_half, cmap=plt.cm.gray, interpolation='nearest')
 plt.show()
 
-plt.figure();
-plt.imshow(dcm_HU, cmap=plt.cm.gray, interpolation='nearest');
+plt.figure()
+plt.imshow(dcm_HU, cmap=plt.cm.gray, interpolation='nearest')
 plt.show()

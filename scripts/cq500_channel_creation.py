@@ -6,7 +6,7 @@ see if it is then possible to represent finer alterations in the brain parenchym
 
 import pydicom
 import numpy as np
-from src.util.windowing import define_window, convert_to_HU, slice_windowing
+from windowing import define_window, convert_to_HU, slice_windowing
 
 def create_channeled_image(dcm_path, window_name):
     dcm = pydicom.dcmread(dcm_path)
@@ -21,6 +21,6 @@ def create_channeled_image(dcm_path, window_name):
 ######################################
 #      TESTING WITH AN EXAMPLE       #
 ######################################
-
-dcm = pydicom.dcmread('/Users/ines/Desktop/test/Unknown Study/CT PLAIN THIN/CT000006.dcm')
-a = create_channeled_image('/Users/ines/Desktop/test/Unknown Study/CT PLAIN THIN/CT000006.dcm', 'brain')
+if __name__ == "__main__":
+    dcm = pydicom.dcmread('./test/Unknown Study/CT PLAIN THIN/CT000006.dcm')
+    a = create_channeled_image('./test/Unknown Study/CT PLAIN THIN/CT000006.dcm', 'brain')

@@ -14,7 +14,7 @@ import pydicom
 import os
 import matplotlib.pyplot as plt
 import re
-from scripts.retrieve_all_dcms import list_forbidden_folders
+from retrieve_all_dcms import list_forbidden_folders
 
 re_forbidden_folders = re.compile(r'\b(?:%s)\b' % '|'.join(list_forbidden_folders))
 
@@ -94,18 +94,18 @@ def define_window(window_name):
 ######################################
 #      TESTING WITH AN EXAMPLE       #
 ######################################
+if __name__ == "__main__":
+    dcm = pydicom.dcmread('/Users/ines/Desktop/test/Unknown Study/CT PLAIN THIN/CT000006.dcm')
 
-dcm = pydicom.dcmread('/Users/ines/Desktop/test/Unknown Study/CT PLAIN THIN/CT000006.dcm')
+    new_wind_dcm = np.load('/Users/ines/Downloads/windowed_dcm.npy')
+    new_wind_dcm_half = np.load('/Users/ines/Downloads/win_HU_half.npy')
 
-new_wind_dcm = np.load('/Users/ines/Downloads/windowed_dcm.npy')
-new_wind_dcm_half = np.load('/Users/ines/Downloads/win_HU_half.npy')
+    dcm_HU = np.load('/Users/ines/Downloads/dcm_HU.npy')
 
-dcm_HU = np.load('/Users/ines/Downloads/dcm_HU.npy')
+    plt.figure()
+    plt.imshow(new_wind_dcm_half, cmap=plt.cm.gray, interpolation='nearest')
+    plt.show()
 
-plt.figure()
-plt.imshow(new_wind_dcm_half, cmap=plt.cm.gray, interpolation='nearest')
-plt.show()
-
-plt.figure()
-plt.imshow(dcm_HU, cmap=plt.cm.gray, interpolation='nearest')
-plt.show()
+    plt.figure()
+    plt.imshow(dcm_HU, cmap=plt.cm.gray, interpolation='nearest')
+    plt.show()
